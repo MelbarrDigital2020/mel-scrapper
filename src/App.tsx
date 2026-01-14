@@ -1,11 +1,12 @@
+import { BrowserRouter } from "react-router-dom";
+import AppRouter from "./app/router";
+
 function App() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900">
-      <h1 className="text-4xl font-bold text-white underline">
-        Hello Mel-Scrapper 🚀
-      </h1>
-    </div>
-  )
+    <BrowserRouter>
+      <AppRouter />
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;

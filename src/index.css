@@ -1,1 +1,24 @@
 @import "tailwindcss";
+
+/* ✅ Tailwind v4 design tokens */
+@theme {
+  --color-primary: #2563EB;
+  --color-primary-hover: #1D4ED8;
+
+  --color-accent: #6366F1;
+
+  --color-background: #FFFFFF;
+  --color-background-section: #F8FAFC;
+  --color-background-card: #FFFFFF;
+
+  --color-text-primary: #111827;
+  --color-text-secondary: #6B7280;
+  --color-text-muted: #9CA3AF;
+
+  --color-border-light: #E5E7EB;
+  --color-border-dark: #D1D5DB;
+
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-error: #DC2626;
+}
