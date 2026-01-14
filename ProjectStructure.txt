@@ -1,0 +1,84 @@
+src/
+ ├── app/                 # app setup (routes, providers)
+ │   └── router.tsx
+ │
+ ├── layout/
+ │   ├── AppLayout.tsx
+ │   └── Sidebar.tsx
+ │
+ ├── pages/
+ │   ├── dashboard/
+ │   │   ├── DashboardPage.tsx
+ │   │   ├── components/
+ │   │   │   ├── StatCard.tsx
+ │   │   │   └── Chart.tsx
+ │   │   └── hooks/
+ │   │       └── useDashboard.ts
+ │   │
+ │   ├── contacts/
+ │   │   ├── ContactsPage.tsx
+ │   │   ├── components/
+ │   │   │   ├── ContactsTable.tsx
+ │   │   │   ├── ContactsFilters.tsx
+ │   │   │   └── ContactsModal.tsx
+ │   │   ├── hooks/
+ │   │   │   └── useContacts.ts
+ │   │   └── types.ts
+ │   │
+ │   ├── companies/
+ │   │   ├── CompaniesPage.tsx
+ │   │   ├── components/
+ │   │   │   ├── CompaniesTable.tsx
+ │   │   │   └── CompaniesFilters.tsx
+ │   │   └── types.ts
+ │
+ ├── shared/
+ │   ├── components/
+ │   │   ├── Button.tsx
+ │   │   ├── Table.tsx
+ │   │   └── Modal.tsx
+ │   ├── hooks/
+ │   │   └── useDebounce.ts
+ │   └── utils/
+ │       └── api.ts
+ │
+ ├── App.tsx
+ ├── main.tsx
+ └── index.css
+
+
+backend/
+ ├── src/
+ │   ├── app.ts
+ │   ├── server.ts
+ │
+ │   ├── config/
+ │   │   ├── env.ts
+ │   │   └── db.ts
+ │
+ │   ├── modules/
+ │   │   ├── contacts/
+ │   │   │   ├── contacts.controller.ts
+ │   │   │   ├── contacts.service.ts
+ │   │   │   ├── contacts.routes.ts
+ │   │   │   └── contacts.types.ts
+ │   │   │
+ │   │   ├── companies/
+ │   │   │   ├── companies.controller.ts
+ │   │   │   ├── companies.service.ts
+ │   │   │   └── companies.routes.ts
+ │   │   │
+ │   │   ├── auth/
+ │   │   │   ├── auth.controller.ts
+ │   │   │   ├── auth.service.ts
+ │   │   │   └── auth.routes.ts
+ │
+ │   ├── shared/
+ │   │   ├── middleware/
+ │   │   ├── utils/
+ │   │   └── logger.ts
+ │
+ │   └── index.ts
+ │
+ ├── .env
+ └── package.json
