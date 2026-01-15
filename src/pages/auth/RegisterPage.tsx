@@ -7,19 +7,60 @@ import OTPInput from "./components/OTPInput";
 import Divider from "./components/Divider";
 import MarketingPanel from "./components/MarketingPanel";
 import PasswordStrength from "./components/PasswordStrength";
+import Spinner from "../shared/components/Spinner";
 
 import { FiMail, FiUser } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { FaMicrosoft } from "react-icons/fa";
 
+type RegisterForm = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+};
+
 export default function RegisterPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [form, setForm] = useState({
+  const [loading, setLoading] = useState(false);
+
+  // Set Form blank
+ const [form, setForm] = useState<RegisterForm>({
     firstName: "",
     lastName: "",
     email: "",
     password: "",
+    confirmPassword: "",
   });
+  // handle Send Otp
+  const handleSendOtp = () => {
+    setLoading(true);
+
+    setTimeout(() => {
+      setLoading(false);
+      setStep(2);
+    }, 1500);
+  };
+  // handle Verify otp
+  const handleVerifyOtp = () => {
+    setLoading(true);
+
+    setTimeout(() => {
+      setLoading(false);
+      setStep(3);
+    }, 1500);
+  };
+
+  // Handle Create account
+  const handleCreateAccount = () => {
+    setLoading(true);
+
+    setTimeout(() => {
+      setLoading(false);
+      alert("Account created successfully 🎉");
+    }, 1500);
+  };
 
   return (
     <AuthLayoutSplit
@@ -58,11 +99,21 @@ export default function RegisterPage() {
                   <AuthInput label="Work Email" placeholder="Enter work email" type="email" icon={<FiMail size={18} />} />
 
                 <button
-                  onClick={() => setStep(2)}
-                  className="w-full bg-primary text-white py-2 rounded-lg font-medium"
+                  onClick={handleSendOtp}
+                  disabled={loading}
+                  className={`w-full py-2 rounded-lg font-medium transition
+                    flex items-center justify-center gap-2
+                    ${
+                      loading
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-primary text-white hover:bg-primary-hover"
+                    }`}
                 >
-                  Continue
+                  {loading && <Spinner size={16} />}
+                  <span>{loading ? "Sending OTP..." : "Continue"}</span>
                 </button>
+
+
               </div>
             </div>
           )}
@@ -77,14 +128,24 @@ export default function RegisterPage() {
               <OTPInput />
 
               <button
-                onClick={() => setStep(3)}
-                className="w-full bg-primary text-white py-2 rounded-lg font-medium"
+                onClick={handleVerifyOtp}
+                disabled={loading}
+                className={`w-full py-2 rounded-lg font-medium transition
+                  flex items-center justify-center gap-2
+                  ${
+                    loading
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-primary text-white hover:bg-primary-hover"
+                  }`}
               >
-                Verify OTP
+                {loading && <Spinner size={16} />}
+                <span>{loading ? "Verifying..." : "Verify OTP"}</span>
               </button>
+
 
               <button
                 onClick={() => setStep(1)}
+                disabled={loading}
                 className="text-sm text-text-muted hover:text-primary"
               >
                 Back
@@ -101,14 +162,34 @@ export default function RegisterPage() {
               </div>
               <AuthInput label="Email" value="john@company.com" readOnly />
 
-              <PasswordInput />
+              <PasswordInput
+                value={form.password}
+                onChange={(v) => setForm({ ...form, password: v })}
+              />
               <PasswordStrength password={form.password} />
 
-              <PasswordInput />
+              <PasswordInput
+                label="Confirm Password"
+                value={form.confirmPassword}
+                onChange={(v) => setForm({ ...form, confirmPassword: v })}
+                placeholder="Confirm your password"
+              />
 
-              <button className="w-full bg-primary text-white py-2 rounded-lg font-medium">
-                Create Account
+              <button
+                onClick={handleCreateAccount}
+                disabled={loading}
+                className={`w-full py-2 rounded-lg font-medium transition
+                  flex items-center justify-center gap-2
+                  ${
+                    loading
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-primary text-white hover:bg-primary-hover"
+                  }`}
+              >
+                {loading && <Spinner size={16} />}
+                <span>{loading ? "Creating account..." : "Create Account"}</span>
               </button>
+
             </div>
           )}
         </>

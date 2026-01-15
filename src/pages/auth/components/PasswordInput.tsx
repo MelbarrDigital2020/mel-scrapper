@@ -1,13 +1,25 @@
 import { useState } from "react";
 import { FiLock, FiEye, FiEyeOff } from "react-icons/fi";
 
-export default function PasswordInput() {
+type Props = {
+  label?: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+};
+
+export default function PasswordInput({
+  label = "Password",
+  value,
+  onChange,
+  placeholder = "Enter your password",
+}: Props) {
   const [show, setShow] = useState(false);
 
   return (
     <div className="flex flex-col gap-1">
       <label className="text-sm font-medium text-text-secondary">
-        Password
+        {label}
       </label>
 
       <div className="relative">
@@ -19,7 +31,9 @@ export default function PasswordInput() {
         {/* Input */}
         <input
           type={show ? "text" : "password"}
-          placeholder="Enter your password"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
           className="w-full rounded-lg border border-border-light bg-white
             px-10 py-2 text-text-primary
             focus:outline-none focus:ring-2 focus:ring-primary"
