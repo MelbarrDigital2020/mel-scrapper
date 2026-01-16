@@ -32,7 +32,20 @@ export default function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
-  });
+    });
+  // password Rules
+  const passwordRules = {
+    length: form.password.length >= 8 && form.password.length <= 20,
+    uppercase: /[A-Z]/.test(form.password),
+    number: /[0-9]/.test(form.password),
+    noSpace: !/\s/.test(form.password),
+  };
+  const isPasswordStrong = passwordRules.length && passwordRules.uppercase && passwordRules.number && passwordRules.noSpace;
+  // Confirm Password
+  const passwordsMatch = 
+    form.confirmPassword.length > 0 &&
+    form.password === form.confirmPassword;
+
   // handle Send Otp
   const handleSendOtp = () => {
     setLoading(true);
@@ -51,7 +64,6 @@ export default function RegisterPage() {
       setStep(3);
     }, 1500);
   };
-
   // Handle Create account
   const handleCreateAccount = () => {
     setLoading(true);
@@ -174,21 +186,36 @@ export default function RegisterPage() {
                 onChange={(v) => setForm({ ...form, confirmPassword: v })}
                 placeholder="Confirm your password"
               />
+              {form.confirmPassword.length > 0 && (
+                <p
+                  className={`text-sm ${
+                    passwordsMatch ? "text-success" : "text-error"
+                  }`}
+                >
+                  {passwordsMatch
+                    ? "Passwords match"
+                    : "Passwords do not match"}
+                </p>
+              )}
+
 
               <button
                 onClick={handleCreateAccount}
-                disabled={loading}
+                disabled={loading || !isPasswordStrong || !passwordsMatch}
                 className={`w-full py-2 rounded-lg font-medium transition
                   flex items-center justify-center gap-2
                   ${
-                    loading
+                    loading || !isPasswordStrong || !passwordsMatch
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                       : "bg-primary text-white hover:bg-primary-hover"
                   }`}
               >
                 {loading && <Spinner size={16} />}
-                <span>{loading ? "Creating account..." : "Create Account"}</span>
+                <span>
+                  {loading ? "Creating account..." : "Create Account"}
+                </span>
               </button>
+
 
             </div>
           )}
