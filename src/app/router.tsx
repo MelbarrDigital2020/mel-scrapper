@@ -10,6 +10,11 @@ import Companies from "../pages/companies/CompaniesPage";
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
 
+import SettingsPage from "../pages/settings/SettingsPage";
+import ProfileSettings from "../pages/settings/components/ProfileSettings";
+import SecuritySettings from "../pages/settings/components/SecuritySettings";
+import NotificationSettings from "../pages/settings/components/NotificationSettings";
+
 export default function AppRouter() {
   return (
     <Routes>
@@ -22,12 +27,19 @@ export default function AppRouter() {
 
       {/* App routes */}
       <Route path="/app" element={<AppLayout />}>
-        {/* Default route */}
         <Route index element={<Navigate to="dashboard" replace />} />
 
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="contacts" element={<Contacts />} />
         <Route path="companies" element={<Companies />} />
+
+        {/* ✅ Settings routes */}
+        <Route path="settings" element={<SettingsPage />}>
+          <Route index element={<Navigate to="profile" replace />} />
+          <Route path="profile" element={<ProfileSettings />} />
+          <Route path="security" element={<SecuritySettings />} />
+          <Route path="notifications" element={<NotificationSettings />} />
+        </Route>
       </Route>
     </Routes>
   );
