@@ -1,0 +1,3 @@
+---Clean Expired OTPS
+DELETE FROM otp
+WHERE expires_at < NOW() - INTERVAL '7 days';

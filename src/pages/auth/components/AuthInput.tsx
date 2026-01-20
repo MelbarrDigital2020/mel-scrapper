@@ -4,6 +4,7 @@ type Props = {
   placeholder?: string;
   icon?: React.ReactNode;
   value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   readOnly?: boolean;
   disabled?: boolean;
 };
@@ -14,6 +15,7 @@ export default function AuthInput({
   placeholder,
   icon,
   value,
+  onChange,
   readOnly = false,
   disabled = false,
 }: Props) {
@@ -21,9 +23,7 @@ export default function AuthInput({
 
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-text-secondary">
-        {label}
-      </label>
+      <label className="text-sm font-medium text-text-secondary">{label}</label>
 
       <div className="relative">
         {icon && (
@@ -39,6 +39,7 @@ export default function AuthInput({
           type={type}
           placeholder={placeholder}
           value={value}
+          onChange={onChange}
           readOnly={readOnly}
           disabled={disabled}
           className={`w-full rounded-lg border border-border-light

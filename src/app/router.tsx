@@ -3,6 +3,8 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import AuthLayout from "../layout/AuthLayout";
 import AppLayout from "../layout/AppLayout";
 
+import ProtectedRoute from "./ProtectedRoute";
+
 import Dashboard from "../pages/dashboard/DashboardHome";
 import Contacts from "../pages/contacts/ContactsPage";
 import Companies from "../pages/companies/CompaniesPage";
@@ -26,7 +28,15 @@ export default function AppRouter() {
       </Route>
 
       {/* App routes */}
-      <Route path="/app" element={<AppLayout />}>
+      <Route
+        path="/app"
+        element={
+          <ProtectedRoute>
+            {" "}
+            <AppLayout />{" "}
+          </ProtectedRoute>
+        }
+      >
         <Route index element={<Navigate to="dashboard" replace />} />
 
         <Route path="dashboard" element={<Dashboard />} />

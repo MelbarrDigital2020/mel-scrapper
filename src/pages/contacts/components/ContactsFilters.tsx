@@ -4,8 +4,23 @@ import {
   FiChevronUp,
   FiX,
   FiLock,
-  FiSave,
+  FiSave,  FiBriefcase,
+  FiUser,
+  FiUsers,
+  FiLayers,
+  FiGrid,
+  FiMapPin,
+  FiTarget, 
 } from "react-icons/fi";
+
+/* ---------------- Region Data ---------------- */
+const regionCountries: Record<string, string[]> = {
+  "APAC (Asia-Pacific)": ["Afghanistan", "American Samoa", "Armenia", "Australia", "Azerbaijan", "Bangladesh", "Bhutan", "British Indian Ocean Territory", "Brunei", "Cambodia", "China", "Christmas Island", "Cocos (Keeling) Islands", "Cook Islands", "East Timor", "Fiji Islands", "French Polynesia", "Gambia The", "Guam", "Hong Kong", "India", "Indonesia", "Japan", "Kazakhstan", "Kiribati", "Kyrgyzstan", "Laos", "Macau", "Malaysia", "Maldives", "Man (Isle of)", "Marshall Islands", "Mongolia", "Myanmar", "Nauru", "Nepal", "New Caledonia", "New Zealand", "Niue", "Norfolk Island", "North Korea", "Northern Mariana Islands", "Pakistan", "Palau", "Papua new Guinea", "Philippines", "Russia", "Samoa", "Singapore", "Solomon Islands", "South Korea", "Sri Lanka", "Taiwan", "Tajikistan", "Thailand", "Tokelau", "Tonga", "Turkmenistan", "Tuvalu", "Uzbekistan", "Vanuatu", "Vietnam", "Wallis And Futuna Islands"],
+  "EMEA(Europe, Middle East & Africa)": ["Aland Islands", "Albania", "Algeria", "Andorra", "Angola", "Antarctica", "Austria", "Bahrain", "Belarus", "Belgium", "Benin", "Bosnia and Herzegovina", "Botswana", "Bouvet Island", "Bulgaria", "Burkina Faso", "Burundi", "Cameroon", "Cape Verde", "Central African Republic", "Chad", "Comoros", "Congo", "Congo The Democratic Republic Of The", "Croatia", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Egypt", "Equatorial Guinea", "Eritrea", "Estonia", "Ethiopia", "Faroe Islands", "Finland", "France", "Gabon", "Georgia", "Germany", "Ghana", "Gibraltar", "Greece", "Greenland", "Guernsey and Alderney", "Guinea", "Guinea-Bissau", "Hungary", "Iceland", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Ivory Coast", "Jersey", "Jordan", "Kenya", "Kuwait", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Macedonia", "Madagascar", "Malawi", "Mali", "Malta", "Mauritania", "Mauritius", "Mayotte", "Moldova", "Monaco", "Montenegro", "Morocco", "Mozambique", "Namibia", "Netherlands", "Niger", "Nigeria", "Norway", "Oman", "Palestinian Territory Occupied", "Poland", "Portugal", "Qatar", "Reunion", "Romania", "Rwanda", "Saint Helena", "San Marino", "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Slovakia", "Slovenia", "Somalia", "South Africa", "South Georgia", "South Sudan", "Spain", "Sudan", "Svalbard And Jan Mayen Islands", "Swaziland", "Sweden", "Switzerland", "Syria", "Tanzania", "Togo", "Tunisia", "Turkey", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "Vatican City State (Holy See)", "Western Sahara", "Yemen", "Zambia", "Zimbabwe"],
+  "LATAM (Latin America)": ["Anguilla", "Antigua And Barbuda", "Argentina", "Aruba", "Bahamas The", "Barbados", "Belize", "Bolivia", "Brazil", "Cayman Islands", "Chile", "Colombia", "Costa Rica", "Cuba", "Dominica", "Dominican Republic", "Ecuador", "El Salvador", "Falkland Islands", "French Guiana", "Grenada", "Guadeloupe", "Guatemala", "Guyana", "Haiti", "Honduras", "Jamaica", "Martinique", "Mexico", "Montserrat", "Nicaragua", "Panama", "Paraguay", "Peru", "Pitcairn Island", "Puerto Rico", "Saint Kitts And Nevis", "Saint Lucia", "Saint Pierre and Miquelon", "Saint Vincent And The Grenadines", "Saint-Barthelemy", "Saint-Martin (French part)", "Suriname", "Trinidad And Tobago", "Turks And Caicos Islands", "Uruguay", "Venezuela", "Virgin Islands (British)"],
+  "North America": ["Bermuda", "Canada", "United States", "United States Minor Outlying Islands", "Virgin Islands (US)"],
+  "Not Specified": ["unknown"],
+};
 
 /* ---------------- Types ---------------- */
 type SectionKey =
@@ -15,7 +30,8 @@ type SectionKey =
   | "company"
   | "employees"
   | "industry"
-  | "emailStatus";
+  | "emailStatus"
+  | "intent";
 
 type FiltersState = Record<SectionKey, string[]>;
 
@@ -24,6 +40,86 @@ type SavedFilter = {
   name: string;
   filters: FiltersState;
 };
+
+/* ---------------- Labels ---------------- */
+const FILTER_LABELS: Record<SectionKey, string> = {
+  jobTitles: "Job Titles",
+  jobLevel: "Job Level",
+  location: "Location",
+  company: "Company",
+  employees: "Employees",
+  industry: "Industry",
+  emailStatus: "Email Status",
+  intent: "Intent-Based",
+};
+
+/* ---------------- Filter Icons ---------------- */
+const FILTER_ICONS: Record<SectionKey, React.ReactNode> = {
+  jobTitles: <FiBriefcase size={14} />,
+  jobLevel: <FiUser size={14} />,
+  company: <FiGrid size={14} />,
+  employees: <FiUsers size={14} />,
+  industry: <FiLayers size={14} />,
+  location: <FiMapPin size={14} />,
+  emailStatus: <FiUser size={14} />,
+  intent: <FiTarget size={14} />,
+
+};
+
+/* ---------------- Filter Config (Backend Friendly) ---------------- */
+const FILTER_CONFIG: {
+  key: SectionKey;
+  label: string;
+  icon: React.ReactNode;
+  options: string[];
+}[] = [
+  {
+    key: "jobTitles",
+    label: "Job Titles",
+    icon: FILTER_ICONS.jobTitles,
+    options: ["Manager", "Director", "VP", "Founder", "CEO"],
+  },
+  {
+    key: "jobLevel",
+    label: "Job Level",
+    icon: FILTER_ICONS.jobLevel,
+    options: ["C-Level", "VP", "Director", "Manager", "IC"],
+  },
+  {
+    key: "company",
+    label: "Company",
+    icon: FILTER_ICONS.company,
+    options: ["Google", "Microsoft", "PwC", "Deloitte", "Amazon"],
+  },
+  {
+    key: "employees",
+    label: "Employees",
+    icon: FILTER_ICONS.employees,
+    options: ["1–10", "11–50", "51–200", "201–500", "500+"],
+  },
+  {
+    key: "industry",
+    label: "Industry & Keywords",
+    icon: FILTER_ICONS.industry,
+    options: ["SaaS", "Fintech", "Healthcare", "E-commerce"],
+  },
+  
+];
+
+const INTENT_FILTER = {
+  key: "intent",
+  label: "Intent-Based",
+  icon: FILTER_ICONS.intent,
+  options: [
+    "Hiring",
+    "Fundraising",
+    "Scaling Team",
+    "Buying Software",
+    "Expansion Plans",
+  ],
+};
+
+
 
 /* ---------------- Main ---------------- */
 export default function ContactsFilter() {
@@ -37,12 +133,12 @@ export default function ContactsFilter() {
     employees: [],
     industry: [],
     emailStatus: [],
+    intent: [],
+
   });
 
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [showSaved, setShowSaved] = useState(false);
-
-  /* ---------- Helpers ---------- */
 
   const toggle = (key: SectionKey) => {
     setOpenSection((prev) => (prev === key ? null : key));
@@ -65,6 +161,7 @@ export default function ContactsFilter() {
       employees: [],
       industry: [],
       emailStatus: [],
+      intent: [],
     });
   };
 
@@ -74,11 +171,7 @@ export default function ContactsFilter() {
 
     setSavedFilters((prev) => [
       ...prev,
-      {
-        id: Date.now().toString(),
-        name,
-        filters,
-      },
+      { id: Date.now().toString(), name, filters },
     ]);
   };
 
@@ -87,23 +180,25 @@ export default function ContactsFilter() {
     setShowSaved(false);
   };
 
-  const activeChips = Object.entries(filters).flatMap(([key, values]) =>
-    values.map((v) => ({ key: key as SectionKey, value: v }))
-  );
+  const hasAnyFilters = Object.values(filters).some((v) => v.length > 0);
+
+/* ---------------- Active Filter Summary (NEW) ---------------- */
+const activeFilterSummary = Object.entries(filters).filter(
+  ([_, values]) => values.length > 0
+);
 
   return (
     <div className="h-full bg-background-card border border-border-light rounded-xl flex flex-col">
 
-      {/* 🔝 Header */}
-      <div className="px-4 py-3 border-b border-border-light space-y-3">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-border-light space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Filters</h3>
 
-          {/* Saved Filters */}
           <div className="relative">
             <button
               onClick={() => setShowSaved((v) => !v)}
-              className="flex items-center gap-1 text-xs text-primary "
+              className="flex items-center gap-1 text-xs text-primary"
             >
               Saved filters <FiChevronDown size={12} />
             </button>
@@ -124,68 +219,97 @@ export default function ContactsFilter() {
           </div>
         </div>
 
-        {/* Active Filter Chips */}
-        {activeChips.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {activeChips.map(({ key, value }) => (
-              <span
-                key={`${key}-${value}`}
-                className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary text-xs"
-              >
-                {value}
-                <FiX
-                  size={12}
-                  className="cursor-pointer"
-                  onClick={() =>
-                    updateFilter(
-                      key,
-                      filters[key].filter((v) => v !== value)
-                    )
-                  }
-                />
-              </span>
-            ))}
+        {/* ✅ Filter Names + Count (PASTE HERE) */}
+        {activeFilterSummary.length > 0 && (
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2 text-xs text-primary">
+              {activeFilterSummary.map(([key, values]) => (
+                <span
+                  key={key}
+                  className="px-2 py-0.5 rounded-md bg-primary/10"
+                >
+                  {FILTER_LABELS[key as SectionKey]} ({values.length})
+                </span>
+              ))}
+            </div>
 
             <button
               onClick={clearAll}
-              className="text-xs text-text-secondary underline"
+              className="text-xs text-text-secondary underline whitespace-nowrap"
             >
               Clear all
             </button>
           </div>
         )}
       </div>
-
+      
       {/* Scroll */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2 text-sm">
-        {(
-          [
-            ["jobTitles", "Job Titles", ["Manager", "Director", "VP", "Founder", "CEO"]],
-            ["jobLevel", "Job Level", ["C-Level", "VP", "Director", "Manager", "IC"]],
-            ["location", "Location", ["India", "United States", "UK", "Germany", "Remote"]],
-            ["company", "Company", ["Google", "Microsoft", "PwC", "Deloitte", "Amazon"]],
-            ["employees", "# Employees", ["1–10", "11–50", "51–200", "201–500", "500+"]],
-            ["industry", "Industry & Keywords", ["SaaS", "Fintech", "Healthcare", "E-commerce"]],
-          ] as const
-        ).map(([key, title, options]) => (
+
+        {/* ---------------- STANDARD FILTERS ---------------- */}
+        {FILTER_CONFIG.map(({ key, label, icon, options }) => (
           <FilterAccordion
             key={key}
-            title={title}
+            title={
+              <span className="flex items-center gap-2">
+                {icon}
+                {label}
+              </span>
+            }
             count={filters[key].length}
             isOpen={openSection === key}
             onClick={() => toggle(key)}
             onClear={() => clearFilter(key)}
           >
             <MultiSelectDropdown
-              placeholder={`Search ${title.toLowerCase()}`}
-              options={[...options]}
+              placeholder={`Search ${label.toLowerCase()}`}
+              options={options}
               value={filters[key]}
               onChange={(v) => updateFilter(key, v)}
             />
           </FilterAccordion>
         ))}
+         {/* // ---------------- Location Filter (SPECIAL) ---------------- */}
+        <FilterAccordion
+          title={
+            <span className="flex items-center gap-2">
+              {FILTER_ICONS.location}
+              Location
+            </span>
+          }
 
-        {/* Locked */}
+          count={filters.location.length}
+          isOpen={openSection === "location"}
+          onClick={() => toggle("location")}
+          onClear={() => clearFilter("location")}
+        >
+          <LocationRegionDropdown
+            value={filters.location}
+            onChange={(v) => updateFilter("location", v)}
+          />
+        </FilterAccordion>
+        {/* ---------------- INTENT FILTER (SPECIAL) ---------------- */}
+        {/* ---------------- Intent-Based Filter ---------------- */}
+      <FilterAccordion
+        title={
+          <span className="flex items-center gap-2">
+            {INTENT_FILTER.icon}
+            {INTENT_FILTER.label}
+          </span>
+        }
+        count={filters.intent.length}
+        isOpen={openSection === "intent"}
+        onClick={() => toggle("intent")}
+        onClear={() => clearFilter("intent")}
+      >
+        <MultiSelectDropdown
+          placeholder="Search intent signals"
+          options={INTENT_FILTER.options}
+          value={filters.intent}
+          onChange={(v) => updateFilter("intent", v)}
+        />
+      </FilterAccordion>
+        {/* ---------------- LOCKED FILTER (SPECIAL) ---------------- */}
         <FilterAccordion
           title={
             <span className="flex items-center gap-1 opacity-70">
@@ -202,8 +326,8 @@ export default function ContactsFilter() {
         </FilterAccordion>
       </div>
 
-      {/* 🔽 Footer */}
-      <div className="border-t border-border-light p-3 flex gap-2 bg-background-card">
+      {/* Footer */}
+      <div className="border-t border-border-light p-3 bg-background-card">
         <button
           onClick={saveCurrentFilter}
           className="flex items-center justify-center gap-1 h-9 px-3 rounded-lg border border-border-light text-sm hover:bg-background"
@@ -212,6 +336,132 @@ export default function ContactsFilter() {
           Save Filter
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Location Region Dropdown ---------------- */
+function LocationRegionDropdown({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const MAX_VISIBLE = 5;
+  const visibleItems = value.slice(0, MAX_VISIBLE);
+  const hiddenCount = value.length - visibleItems.length;
+
+  const toggleCountry = (country: string) => {
+    onChange(
+      value.includes(country)
+        ? value.filter((v) => v !== country)
+        : [...value, country]
+    );
+  };
+
+  const toggleRegion = (countries: string[]) => {
+    const allSelected = countries.every((c) => value.includes(c));
+    onChange(
+      allSelected
+        ? value.filter((v) => !countries.includes(v))
+        : [...new Set([...value, ...countries])]
+    );
+  };
+
+  return (
+    <div className="relative">
+      <div
+        onClick={() => setOpen((v) => !v)}
+        className="min-h-[36px] w-full flex flex-wrap gap-1 items-center px-2 py-1 rounded-lg bg-background border border-border-light cursor-pointer"
+      >
+        {value.length === 0 && (
+          <span className="text-xs text-text-secondary">
+            Search countries or regions
+          </span>
+        )}
+
+        {visibleItems.map((item) => (
+          <span
+            key={item}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs"
+          >
+            {item}
+            <FiX
+              size={12}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleCountry(item);
+              }}
+            />
+          </span>
+        ))}
+
+        {hiddenCount > 0 && (
+          <span className="px-2 py-0.5 text-xs text-text-secondary">
+            +{hiddenCount} more
+          </span>
+        )}
+      </div>
+
+      {open && (
+        <div className="absolute z-50 mt-2 w-full bg-background-card border border-border-light rounded-lg shadow-xl">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search country or region..."
+            className="w-full h-8 px-3 text-xs bg-background border-b border-border-light outline-none"
+          />
+
+          <div className="max-h-60 overflow-y-auto p-2 space-y-3">
+            {Object.entries(regionCountries).map(([region, countries]) => {
+              const filtered = countries.filter((c) =>
+                c.toLowerCase().includes(search.toLowerCase())
+              );
+              if (filtered.length === 0) return null;
+
+              const allSelected = countries.every((c) => value.includes(c));
+              const someSelected =
+                !allSelected && countries.some((c) => value.includes(c));
+
+              return (
+                <div key={region}>
+                  <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = someSelected;
+                      }}
+                      onChange={() => toggleRegion(countries)}
+                    />
+                    {region}
+                  </label>
+
+                  <div className="ml-5 mt-1 space-y-1">
+                    {filtered.map((country) => (
+                      <label
+                        key={country}
+                        className="flex items-center gap-2 text-xs cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={value.includes(country)}
+                          onChange={() => toggleCountry(country)}
+                        />
+                        {country}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,6 +9,8 @@ import {
   FiSettings,
   FiLogOut,
 } from "react-icons/fi";
+import api from "../services/api";
+import defaultImage from "../assets/default_avatar.jpg";
 
 export default function AppNavbar({
   collapsed,
@@ -47,30 +49,33 @@ export default function AppNavbar({
   /** ✅ Close dropdowns on outside click */
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        userRef.current &&
-        !userRef.current.contains(e.target as Node)
-      ) {
+      if (userRef.current && !userRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
       }
 
-      if (
-        notifyRef.current &&
-        !notifyRef.current.contains(e.target as Node)
-      ) {
+      if (notifyRef.current && !notifyRef.current.contains(e.target as Node)) {
         setNotifyOpen(false);
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () =>
-      document.removeEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   /** 🔀 Navigation handlers */
   const goToSettings = () => {
     setMenuOpen(false);
     navigate("/app/settings");
+  };
+
+  // ----- Handle Logout -------
+  const handleLogout = async () => {
+    try {
+      await api.post("/auth/logout");
+      navigate("/login", { replace: true });
+    } catch {
+      alert("Logout failed. Please try again.");
+    }
   };
 
   return (
@@ -82,9 +87,7 @@ export default function AppNavbar({
           className="p-2 rounded-lg hover:bg-background-section transition"
         >
           <FiChevronLeft
-            className={`transition-transform ${
-              collapsed ? "rotate-180" : ""
-            }`}
+            className={`transition-transform ${collapsed ? "rotate-180" : ""}`}
           />
         </button>
 
@@ -149,18 +152,24 @@ export default function AppNavbar({
             onClick={() => setMenuOpen((v) => !v)}
             className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-background-section transition"
           >
-            <img
-              src="https://i.pravatar.cc/40"
-              className="w-8 h-8 rounded-full border"
-            />
+            <img src={defaultImage} className="w-8 h-8 rounded-full border" />
             <span className="hidden sm:block">Mel</span>
             <FiChevronDown />
           </button>
 
           {menuOpen && (
             <div className="absolute right-0 top-12 w-48 bg-background-card border border-border-light rounded shadow-lg z-50">
-              <DropdownItem label="Settings" icon={<FiSettings size={16} />} onClick={goToSettings} />
-              <DropdownItem label="Logout" icon={<FiLogOut size={16} />} danger />
+              <DropdownItem
+                label="Settings"
+                icon={<FiSettings size={16} />}
+                onClick={goToSettings}
+              />
+              <DropdownItem
+                label="Logout"
+                icon={<FiLogOut size={16} />}
+                danger
+                onClick={handleLogout}
+              />
             </div>
           )}
         </div>
@@ -224,9 +233,7 @@ function NotificationItem({
           <p className="text-sm font-medium">{title}</p>
           <span className="text-xs text-text-muted">{time}</span>
         </div>
-        <p className="text-xs text-text-secondary mt-0.5">
-          {description}
-        </p>
+        <p className="text-xs text-text-secondary mt-0.5">{description}</p>
       </div>
     </div>
   );

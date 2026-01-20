@@ -1,0 +1,279 @@
+# MEL-SCRAPPER AUTH API DOCUMENTATION (v1)
+
+Base URL:
+/api/auth
+
+Content-Type:
+application/json
+
+---
+
+## AUTH FLOW OVERVIEW
+
+REGISTRATION FLOW (3 STEPS)
+
+1. Start registration (send OTP)
+2. Verify OTP
+3. Set password (account created)
+
+LOGIN FLOW (2FA ENABLED)
+
+1. Email + Password (send OTP)
+2. Verify OTP (JWT issued)
+
+---
+
+1. REGISTER – START
+
+---
+
+Endpoint:
+POST /api/auth/register/start
+
+Purpose:
+
+* Create user if not exists
+* Send registration OTP via email
+
+Request Body:
+{
+"firstName": "Omkar",
+"lastName": "Gaware",
+"email": "[omkargaware0@gmail.com](mailto:omkargaware0@gmail.com)"
+}
+
+Success Response:
+{
+"success": true,
+"message": "OTP sent to your email",
+"data": {
+"userId": "uuid",
+"email": "omkargaware0@gmail.com"
+}
+}
+
+Error Responses:
+
+* Email already registered
+
+---
+
+2. REGISTER – VERIFY OTP
+
+---
+
+Endpoint:
+POST /api/auth/register/verify-otp
+
+Purpose:
+
+* Verify registration OTP
+* Mark email as verified
+
+Request Body:
+{
+"userId": "uuid",
+"otp": "123456"
+}
+
+Success Response:
+{
+"success": true,
+"message": "Email verified successfully"
+}
+
+Error Responses:
+
+* Invalid OTP
+* OTP expired
+
+---
+
+3. REGISTER – RESEND OTP
+
+---
+
+Endpoint:
+POST /api/auth/register/resend-otp
+
+Purpose:
+
+* Invalidate old OTP
+* Generate and send new OTP
+
+Request Body:
+{
+"email": "[omkargaware0@gmail.com](mailto:omkargaware0@gmail.com)"
+}
+
+Success Response:
+{
+"success": true,
+"message": "OTP resent successfully"
+}
+
+---
+
+4. REGISTER – COMPLETE (SET PASSWORD)
+
+---
+
+Endpoint:
+POST /api/auth/register/complete
+
+Purpose:
+
+* Set password
+* Activate account
+
+Request Body:
+{
+"userId": "uuid",
+"password": "StrongPassword123"
+}
+
+Success Response:
+{
+"success": true,
+"message": "Account created successfully"
+}
+
+Error Responses:
+
+* Email not verified
+* Account already completed
+
+---
+
+5. LOGIN – START (PASSWORD)
+
+---
+
+Endpoint:
+POST /api/auth/login
+
+Purpose:
+
+* Validate email & password
+* Send login OTP if 2FA enabled
+
+Request Body:
+{
+"email": "omkargaware0@gmail.com",
+"password": "asd@123"
+}
+
+Success Response (2FA Required):
+{
+"success": true,
+"message": "OTP sent to your email",
+"data": {
+"twoFaRequired": true,
+"userId": "uuid"
+}
+}
+
+Error Responses:
+
+* Invalid email or password
+* Email not verified
+* Account inactive
+
+---
+
+6. LOGIN – RESEND OTP
+
+---
+
+Endpoint:
+POST /api/auth/login/resend-otp
+
+Purpose:
+
+* Resend login OTP
+
+Request Body:
+{
+"userId": "uuid"
+}
+
+Success Response:
+{
+"success": true,
+"message": "OTP resent successfully"
+}
+
+---
+
+7. LOGIN – VERIFY OTP
+
+---
+
+Endpoint:
+POST /api/auth/login/verify-otp
+
+Purpose:
+
+* Verify login OTP
+* Issue JWT token
+
+Request Body:
+{
+"userId": "uuid",
+"otp": "123456"
+}
+
+Success Response:
+{
+"success": true,
+"message": "Login successful",
+"data": {
+"accessToken": "JWT_TOKEN"
+}
+}
+
+---
+
+8. GET CURRENT USER (JWT PROTECTED)
+
+---
+
+Endpoint:
+GET /api/auth/me
+
+Headers:
+Authorization: Bearer <JWT_TOKEN>
+
+Purpose:
+
+* Verify JWT
+* Return logged-in user context
+
+Success Response:
+{
+"success": true,
+"user": {
+"userId": "uuid",
+"email": "[omkargaware0@gmail.com](mailto:omkargaware0@gmail.com)"
+}
+}
+
+Error Response:
+
+* Invalid or expired token
+
+---
+
+## SECURITY NOTES
+
+* OTPs are hashed in database
+* OTPs are single-use
+* Old OTPs are always invalidated
+* JWT is issued only after OTP verification
+* JWT is short-lived
+* last_login and last_login_ip are tracked
+* Email delivery via centralized email service
+
+---
+
+## END OF DOCUMENT
