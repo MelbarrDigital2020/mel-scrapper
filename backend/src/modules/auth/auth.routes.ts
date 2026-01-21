@@ -37,11 +37,7 @@ router.get("/me", authMiddleware, async (req: any, res) => {
     const result = await pool.query(
       `
       SELECT
-        id,
-        email,
-        first_name,
-        last_name,
-        avatar_url
+        id, first_name, last_name, email, role, is_active, email_is_verified, two_fa_enabled, last_login, last_login_ip, created_at, updated_at, avatar_url, contact_number, bio, timezone
       FROM users
       WHERE id = $1
       `,

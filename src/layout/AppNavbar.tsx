@@ -10,7 +10,6 @@ import {
   FiLogOut,
 } from "react-icons/fi";
 import api from "../services/api";
-import defaultImage from "../assets/default_avatar.jpg";
 
 // Logged In User Type
 type User = {
@@ -47,7 +46,6 @@ export default function AppNavbar({
         navigate("/login", { replace: true });
       }
     };
-
     fetchUser();
   }, [navigate]);
 
@@ -177,12 +175,17 @@ export default function AppNavbar({
             className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-background-section transition"
           >
             <img
-              src={user?.avatar_url || defaultImage}
+              src={
+                user?.avatar_url
+                  ? `/avatars/${user.avatar_url}`
+                  : "/avatars/default_avatar.jpg"
+              }
               className="w-8 h-8 rounded-full border"
               alt="User avatar"
             />
+
             <span className="hidden sm:block">
-              {user?.first_name || "User"}
+              {user?.first_name || "User"} {user?.last_name || "User"}
             </span>
             <FiChevronDown />
           </button>
