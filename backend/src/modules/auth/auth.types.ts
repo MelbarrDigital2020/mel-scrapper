@@ -19,3 +19,14 @@ export interface LoginDTO {
   email: string;
   password: string;
 }
+
+export type LoginResponse =
+  | {
+      twoFaRequired: true;
+      userId: string;
+    }
+  | {
+      twoFaRequired: false;
+      accessToken: string;
+    };
+

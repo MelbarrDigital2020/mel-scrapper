@@ -1,4 +1,8 @@
 import { useState, type ReactNode } from "react";
+import { useConfirmDialog } from "../hooks/useConfirmDialog";
+import { useSaveFilterDialog } from "../hooks/useSaveFilterDialog";
+import { useToast } from "../hooks/toast/ToastContext";
+
 import {
   FiChevronDown,
   FiChevronUp,
@@ -124,6 +128,9 @@ const INTENT_FILTER = {
 /* ---------------- Main ---------------- */
 export default function ContactsFilter() {
   const [openSection, setOpenSection] = useState<SectionKey | null>("jobTitles");
+  const confirm = useConfirmDialog();
+  const saveFilterDialog = useSaveFilterDialog();
+  const { showToast } = useToast();
 
   const [filters, setFilters] = useState<FiltersState>({
     jobTitles: [],
@@ -165,21 +172,79 @@ export default function ContactsFilter() {
     });
   };
 
-  const saveCurrentFilter = () => {
-    const name = prompt("Save filter as");
-    if (!name) return;
+const saveCurrentFilter = async () => {
+  const ok = await confirm({
+    title: "Are you absolutely sure?",
+    description:
+      "This will save the current filter configuration. You can reuse it later from saved filters.",
+    confirmText: "Continue",
+    cancelText: "Cancel",
+  });
 
-    setSavedFilters((prev) => [
-      ...prev,
-      { id: Date.now().toString(), name, filters },
-    ]);
-  };
+  if (!ok) return;
+
+  const name = await saveFilterDialog();
+  if (!name) return;
+
+  const exists = savedFilters.some(
+      (f) => f.name.toLowerCase() === name.toLowerCase()
+    );
+
+    if (exists) {
+      showToast({
+        type: "error",
+        title: "Duplicate filter",
+        message: "A filter with this name already exists.",
+      });
+      return;
+    }
+
+
+  setSavedFilters((prev) => [
+    ...prev,
+    {
+      id: Date.now().toString(),
+      name,
+      filters,
+    },
+  ]);
+
+  // ✅ SUCCESS TOAST
+  showToast({
+    type: "success",
+    title: "Filter saved",
+    message: `"${name}" has been added to your saved filters.`,
+  });
+};
 
   const applySavedFilter = (saved: SavedFilter) => {
     setFilters(saved.filters);
     setShowSaved(false);
   };
+/* ---------------- Delete Saved Filter ---------------- */
+ const deleteSavedFilter = async (filter: SavedFilter) => {
+  const ok = await confirm({
+    title: "Delete saved filter?",
+    description:
+      "This action cannot be undone. The saved filter will be permanently removed.",
+    confirmText: "Delete",
+    cancelText: "Cancel",
+    variant: "danger",
+  });
 
+  if (!ok) return;
+
+  setSavedFilters((prev) =>
+    prev.filter((f) => f.id !== filter.id)
+  );
+
+  showToast({
+    type: "error",
+    title: "Filter deleted",
+    message: `"${filter.name}" has been permanently removed.`,
+  });
+};
+ 
   const hasAnyFilters = Object.values(filters).some((v) => v.length > 0);
 
 /* ---------------- Active Filter Summary (NEW) ---------------- */
@@ -206,14 +271,32 @@ const activeFilterSummary = Object.entries(filters).filter(
             {showSaved && savedFilters.length > 0 && (
               <div className="absolute right-0 z-50 mt-1 w-48 bg-background-card border border-border-light rounded-lg shadow-lg">
                 {savedFilters.map((sf) => (
+                <div
+                  key={sf.id}
+                  className="group flex items-center justify-between px-3 py-2 text-xs hover:bg-background"
+                >
+                  {/* Apply filter */}
                   <button
-                    key={sf.id}
                     onClick={() => applySavedFilter(sf)}
-                    className="w-full px-3 py-2 text-left text-xs hover:bg-background"
+                    className="flex-1 text-left truncate"
                   >
                     {sf.name}
                   </button>
-                ))}
+
+                  {/* Delete icon */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // 🚫 prevent apply
+                      deleteSavedFilter(sf);
+                    }}
+                    className="ml-2 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 transition"
+                    title="Delete filter"
+                  >
+                    <FiX size={14} />
+                  </button>
+                </div>
+              ))}
+
               </div>
             )}
           </div>
@@ -336,6 +419,8 @@ const activeFilterSummary = Object.entries(filters).filter(
           Save Filter
         </button>
       </div>
+      {confirm.Dialog}
+      {saveFilterDialog.Dialog}
     </div>
   );
 }

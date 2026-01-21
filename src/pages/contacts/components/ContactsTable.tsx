@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import ContactsModal from "./ContactsModal";
 import { FiCopy, FiMail } from "react-icons/fi";
 import { FaLinkedin } from "react-icons/fa";
+import { Section, Info, Divider } from "../../shared/components/DrawerSections";
 
 import {
   FiEye,
@@ -187,6 +188,8 @@ export default function ContactsTable({
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isContactsModalOpen, setIsContactsModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isContactDrawerLoading, setIsContactDrawerLoading] = useState(false);
+
   /* ---------- Dropdown Refs ---------- */
   const listDropdownRef = useRef<HTMLDivElement | null>(null);
   const exportDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -625,12 +628,21 @@ useEffect(() => {
                     </button>
 
                     <button
-                      title="View Contact"
-                      onClick={() => setViewContact(row)}
-                      className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-background hover:shadow-sm transition"
-                    >
-                      <FiEye size={16} />
-                    </button>
+                    title="View Contact"
+                    onClick={() => {
+                      setIsContactDrawerLoading(true);
+                      setViewContact(row);
+
+                      // simulate API delay
+                      setTimeout(() => {
+                        setIsContactDrawerLoading(false);
+                      }, 900);
+                    }}
+                    className="h-7 w-7 rounded-lg flex items-center justify-center
+                              hover:bg-background hover:shadow-sm transition"
+                  >
+                    <FiEye size={16} />
+                  </button>
                   </div>
                 </td>
               </tr>
@@ -687,169 +699,173 @@ useEffect(() => {
         />
       )}
     {/* ================= VIEW CONTACT DRAWER ================= */}
-{viewContact && (
-  <div className="fixed inset-0 z-[200] flex">
-    {/* Backdrop */}
-    <div
-      className="flex-1 bg-black/30"
-      onClick={() => setViewContact(null)}
-    />
-
-    {/* Drawer */}
-    <div className="w-[440px] bg-background-card border-l border-border-light shadow-xl overflow-y-auto">
-      {/* Header */}
-        <div className="p-5 border-b border-border-light flex items-start justify-between">
-          <div className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold leading-tight">
-              {viewContact.name}
-            </h2>
-
-            <p className="text-sm text-text-secondary">
-              {viewContact.jobTitle}
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex items-center gap-2 mt-1">
-              <a
-                href={`mailto:${viewContact.email}`}
-                className="px-3 h-8 rounded-lg text-xs
-                          bg-primary/10 text-primary
-                          hover:bg-primary/20 transition
-                          flex items-center gap-1"
-              >
-                <FiMail size={14} />
-                Email
-              </a>
-
-              <a
-                href={viewContact.linkedin !== "View" ? viewContact.linkedin : "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 h-8 rounded-lg text-xs
-                          bg-background border border-border-light
-                          hover:bg-background/80 transition
-                          flex items-center gap-1"
-              >
-                <FaLinkedin size={14} />
-                LinkedIn
-              </a>
-            </div>
-          </div>
-
-          {/* ✅ Close button */}
-          <button
+      {viewContact && (
+        <div className="fixed inset-0 z-[200] flex">
+          {/* Backdrop */}
+          <div
+            className="flex-1 bg-black/30"
             onClick={() => setViewContact(null)}
-            className="h-8 w-8 rounded-lg hover:bg-background flex items-center justify-center"
-          >
-            ✕
-          </button>
-        </div>
-
-      {/* Company Card */}
-      <div className="p-5 border-b border-border-light">
-        <div className="flex items-center gap-3">
-          <img
-            src={getCompanyLogo(viewContact.companyDomain)}
-            className="h-10 w-10 rounded-md border border-border-light bg-white"
           />
-          <div>
-            <p className="font-medium">{viewContact.company}</p>
-            <p className="text-xs text-text-secondary">
-              {viewContact.domain}
-            </p>
+
+          {/* Drawer */}
+          <div className="w-[440px] bg-background-card border-l border-border-light shadow-xl overflow-y-auto">
+            {/* Header */}
+              <div className="p-5 border-b border-border-light flex items-start justify-between">
+                <div className="flex flex-col gap-2">
+                  <h2 className="text-lg font-semibold leading-tight">
+                    {viewContact.name}
+                  </h2>
+
+                  <p className="text-sm text-text-secondary">
+                    {viewContact.jobTitle}
+                  </p>
+
+                  {/* CTA Buttons */}
+                  <div className="flex items-center gap-2 mt-1">
+                    <a
+                      href={`mailto:${viewContact.email}`}
+                      className="px-3 h-8 rounded-lg text-xs
+                                bg-primary/10 text-primary
+                                hover:bg-primary/20 transition
+                                flex items-center gap-1"
+                    >
+                      <FiMail size={14} />
+                      Email
+                    </a>
+
+                    <a
+                      href={viewContact.linkedin !== "View" ? viewContact.linkedin : "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 h-8 rounded-lg text-xs
+                                bg-background border border-border-light
+                                hover:bg-background/80 transition
+                                flex items-center gap-1"
+                    >
+                      <FaLinkedin size={14} />
+                      LinkedIn
+                    </a>
+                  </div>
+                </div>
+
+                {/* ✅ Close button */}
+                <button
+                  onClick={() => setViewContact(null)}
+                  className="h-8 w-8 rounded-lg hover:bg-background flex items-center justify-center"
+                >
+                  ✕
+                </button>
+              </div>
+
+            {/* Company Card */}
+            <div className="p-5 border-b border-border-light">
+              <div className="flex items-center gap-3">
+                <img
+                  src={getCompanyLogo(viewContact.companyDomain)}
+                  className="h-10 w-10 rounded-md border border-border-light bg-white"
+                />
+                <div>
+                  <p className="font-medium">{viewContact.company}</p>
+                  <p className="text-xs text-text-secondary">
+                    {viewContact.domain}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Info */}
+          {isContactDrawerLoading ? (
+            <ContactDrawerSkeleton />
+          ) : (
+            <div className="p-5 space-y-4">
+              <Section title="Contact Information">
+                {/* Email */}
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-text-secondary text-sm">Email</p>
+                    <p className="font-medium">{viewContact.email}</p>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      copyToClipboard(viewContact.email, "email")
+                    }
+                    className="h-8 w-8 rounded-lg border border-border-light
+                              hover:bg-background flex items-center justify-center transition"
+                    title="Copy email"
+                  >
+                    {copied === "email" ? "✓" : <FiCopy size={14} />}
+                  </button>
+                </div>
+
+                {/* Phone */}
+                <Info label="Phone" value={viewContact.phone} />
+
+                {/* LinkedIn */}
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-text-secondary text-sm">LinkedIn</p>
+                    <a
+                      href={viewContact.linkedin !== "View" ? viewContact.linkedin : "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-primary hover:underline"
+                    >
+                      {viewContact.linkedin}
+                    </a>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      copyToClipboard(viewContact.linkedin, "linkedin")
+                    }
+                    className="h-8 w-8 rounded-lg border border-border-light
+                              hover:bg-background flex items-center justify-center transition"
+                    title="Copy LinkedIn URL"
+                  >
+                    {copied === "linkedin" ? "✓" : <FiCopy size={14} />}
+                  </button>
+                </div>
+
+                <Info label="Location" value={viewContact.location} />
+              </Section>
+
+              <Divider />
+
+              <Section title="Business Information">
+                <Info label="Industry" value={viewContact.industry} />
+                <Info label="Employees" value={viewContact.employees} />
+                <Info label="Revenue" value={viewContact.revenue} />
+              </Section>
+            </div>
+          )}
+            {/* Footer Actions */}
+            <div className="p-5 border-t border-border-light flex gap-2">
+              <button
+                onClick={() => {
+                  setIsContactsModalOpen(true);
+
+                  // optional: close drawer when modal opens
+                  setViewContact(null);
+                }} disabled={isContactDrawerLoading}
+                className={`flex-1 h-9 rounded-lg border border-border-light
+    ${isContactDrawerLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-background"}`}
+              >
+                Add to List
+              </button>
+
+              <button
+                disabled={isContactDrawerLoading}
+                className={`flex-1 h-9 rounded-lg border border-border-light bg-primary text-white
+    ${isContactDrawerLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-background"}`}
+              >
+                Export Prospect
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Contact Info */}
-      <div className="p-5 space-y-4">
-        <Section title="Contact Information">
-          {/* Email */}
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-text-secondary text-sm">Email</p>
-              <p className="font-medium">{viewContact.email}</p>
-            </div>
-
-            <button
-              onClick={() =>
-                copyToClipboard(viewContact.email, "email")
-              }
-              className="h-8 w-8 rounded-lg border border-border-light
-                        hover:bg-background flex items-center justify-center transition"
-              title="Copy email"
-            >
-              {copied === "email" ? "✓" : <FiCopy size={14} />}
-            </button>
-          </div>
-
-          {/* Phone */}
-          <Info label="Phone" value={viewContact.phone} />
-
-          {/* LinkedIn */}
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-text-secondary text-sm">LinkedIn</p>
-              <a
-                href={viewContact.linkedin !== "View" ? viewContact.linkedin : "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-primary hover:underline"
-              >
-                {viewContact.linkedin}
-              </a>
-            </div>
-
-            <button
-              onClick={() =>
-                copyToClipboard(viewContact.linkedin, "linkedin")
-              }
-              className="h-8 w-8 rounded-lg border border-border-light
-                        hover:bg-background flex items-center justify-center transition"
-              title="Copy LinkedIn URL"
-            >
-              {copied === "linkedin" ? "✓" : <FiCopy size={14} />}
-            </button>
-          </div>
-
-          <Info label="Location" value={viewContact.location} />
-        </Section>
-
-        <Divider />
-
-        <Section title="Business Information">
-          <Info label="Industry" value={viewContact.industry} />
-          <Info label="Employees" value={viewContact.employees} />
-          <Info label="Revenue" value={viewContact.revenue} />
-        </Section>
-      </div>
-
-      {/* Footer Actions */}
-      <div className="p-5 border-t border-border-light flex gap-2">
-        <button
-          onClick={() => {
-            setIsContactsModalOpen(true);
-
-            // optional: close drawer when modal opens
-            setViewContact(null);
-          }}
-          className="flex-1 h-9 rounded-lg border border-border-light
-                    hover:bg-background transition"
-        >
-          Add to List
-        </button>
-
-        <button
-          className="flex-1 h-9 rounded-lg bg-primary text-white
-                    hover:brightness-110 transition"
-        >
-          Export Prospect
-        </button>
-      </div>
-    </div>
+      )}
   </div>
-)}
-    </div>
   );
 }
 /* ---------- Highlight Helper ---------- */
@@ -883,39 +899,44 @@ function HighlightText({
   );
 }
 
-/* ================= SECTION  ================= */
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function ContactDrawerSkeleton() {
   return (
-    <div className="space-y-3">
-      <h4 className="text-xs font-semibold uppercase text-text-secondary">
-        {title}
-      </h4>
-      <div className="space-y-2">{children}</div>
+    <div className="p-5 space-y-6 animate-pulse">
+      {/* Header */}
+      <div className="space-y-2">
+        <div className="h-4 w-1/2 bg-border-light rounded" />
+        <div className="h-3 w-1/3 bg-border-light rounded" />
+      </div>
+
+      {/* Company */}
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-md bg-border-light" />
+        <div className="space-y-2 flex-1">
+          <div className="h-3 w-1/2 bg-border-light rounded" />
+          <div className="h-3 w-1/3 bg-border-light rounded" />
+        </div>
+      </div>
+
+      <Divider />
+
+      {/* Info rows */}
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="flex justify-between">
+          <div className="h-3 w-1/3 bg-border-light rounded" />
+          <div className="h-3 w-1/4 bg-border-light rounded" />
+        </div>
+      ))}
+
+      <Divider />
+
+      {/* Business info */}
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex justify-between">
+          <div className="h-3 w-1/3 bg-border-light rounded" />
+          <div className="h-3 w-1/4 bg-border-light rounded" />
+        </div>
+      ))}
     </div>
   );
 }
 
-function Info({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex justify-between gap-4 text-sm">
-      <span className="text-text-secondary">{label}</span>
-      <span className="font-medium text-right">{value}</span>
-    </div>
-  );
-}
-
-function Divider() {
-  return <div className="h-px bg-border-light" />;
-}

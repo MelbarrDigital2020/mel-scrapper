@@ -1,14 +1,14 @@
-import express, { Application } from "express";
+import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRoutes from "./modules/auth/auth.routes";
 
-const app: Application = express();
+const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:5173", // frontend URL
-    credentials: true,               // 🔥 REQUIRED FOR COOKIES
+    origin: "http://localhost:5173", // frontend origin
+    credentials: true,               // 🔥 REQUIRED
   })
 );
 

@@ -75,23 +75,46 @@ export const registerResendOtp = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   try {
     const ip =
-      (req.headers["x-forwarded-for"] as string)?.split(",")[0] ||
-      req.ip;
+      (req.headers["x-forwarded-for"] as string)?.split(",")[0] || req.ip;
 
     const data = await authService.loginUser(req.body, ip);
 
-    res.status(200).json({
+    // ✅ Narrow the union properly
+    if (data.twoFaRequired === false) {
+      res.cookie("access_token", data.accessToken, {
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+        path: "/", 
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Login successful",
+        data: {
+          twoFaRequired: false,
+        },
+      });
+    }
+
+    // 2FA required
+    return res.status(200).json({
       success: true,
-      message: "Login successful",
-      data
+      message: "OTP sent",
+      data: {
+        twoFaRequired: true,
+        userId: data.userId,
+      },
     });
   } catch (err: any) {
     res.status(400).json({
       success: false,
-      message: err.message
+      message: err.message,
     });
   }
 };
+
 
 export const loginVerifyOtp = async (req: Request, res: Response) => {
   try {
@@ -106,13 +129,15 @@ export const loginVerifyOtp = async (req: Request, res: Response) => {
       ip
     );
 
-    // 🔐 SET COOKIE HERE
+
     res.cookie("access_token", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      secure: false,      // ✅ MUST be false in localhost
+      sameSite: "lax",    // ✅ correct
+      path: "/", 
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
+
 
     res.json({
       success: true,

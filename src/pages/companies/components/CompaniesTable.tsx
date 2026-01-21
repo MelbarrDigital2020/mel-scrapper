@@ -1,0 +1,733 @@
+import { useState, useMemo, useRef, useEffect } from "react";
+import CompaniesModal from "./CompaniesModal";
+import { Section, Info, Divider } from "../../shared/components/DrawerSections";
+
+import {
+  FiPlus,
+  FiEye,
+  FiDownload,
+  FiChevronDown,
+  FiChevronLeft,
+  FiChevronRight,
+  FiFileText,
+  FiGrid,
+} from "react-icons/fi";
+
+/* ---------- Company Logo Helper ---------- */
+const getCompanyLogo = (domain: string) =>
+  `https://logos-api.apistemic.com/domain:${domain}`;
+
+/* ---------- Types ---------- */
+type Company = {
+  id: number;
+  companyName: string;
+  domain: string;
+  description?: string;
+  // ✅ single value (table + sorting)
+  industry: string;
+  industries?: string[];
+  phone: string;
+  linkedin: string;
+  website?: string;
+  twitter?: string;
+  location: string;
+  headquarters?: string;
+  employees: string;
+  revenue: string;
+  foundedYear?: string;
+};
+
+/* ---------- Dummy Companies ---------- */
+const COMPANIES: Company[] = [
+  {
+    id: 1,
+    companyName: "Google",
+    domain: "google.com",
+    description:
+      "Google is a multinational technology company specializing in Internet-related services and products.",
+    industry: "Technology",
+    industries: ["Technology", "AI", "Cloud"],
+    phone: "+1 650-253-0000",
+    linkedin: "https://linkedin.com/company/google",
+    website: "https://www.google.com",
+    twitter: "https://twitter.com/google",
+    location: "USA",
+    headquarters: "Mountain View, CA",
+    employees: "10000+",
+    revenue: "$100B+",
+    foundedYear: "1998",
+  },
+  {
+    id: 2,
+    companyName: "Stripe",
+    domain: "stripe.com",
+    description:
+      "Stripe is a technology company that builds economic infrastructure for the internet.",
+    industry: "FinTech",
+    industries: ["FinTech", "Payments", "SaaS"],
+    phone: "+1 888-963-8955",
+    linkedin: "https://linkedin.com/company/stripe",
+    website: "https://stripe.com",
+    twitter: "https://twitter.com/stripe",
+    location: "USA",
+    headquarters: "San Francisco, CA",
+    employees: "5000+",
+    revenue: "$10B+",
+    foundedYear: "2010",
+  },
+];
+
+export default function CompaniesTable({ search }: { search: string }) {
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+
+  const [isListOpen, setIsListOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [viewCompany, setViewCompany] = useState<Company | null>(null);
+  const [isDrawerLoading, setIsDrawerLoading] = useState(false);
+
+  const listDropdownRef = useRef<HTMLDivElement | null>(null);
+  const exportDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  /* ---------- Sort Dropdown Ref ---------- */
+  const sortDropdownRef = useRef<HTMLDivElement | null>(null);  
+    /* ---------- SORT STATE ---------- */
+    const [isSortOpen, setIsSortOpen] = useState(false);
+    
+    const [sortBy, setSortBy] = useState<
+        "companyName" | "industry" | "employees" | "revenue" | ""
+      >("");
+
+    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  /* ---------- Search ---------- */
+  const normalizedSearch = search.trim().toLowerCase();
+
+  const filteredRows = useMemo(() => {
+    if (!normalizedSearch) return COMPANIES;
+    return COMPANIES.filter(
+      (c) =>
+        c.companyName.toLowerCase().includes(normalizedSearch) ||
+        c.domain.toLowerCase().includes(normalizedSearch)
+    );
+  }, [normalizedSearch]);
+
+/* ---------- Sorting ---------- */
+const sortedRows = useMemo(() => {
+  const rows = [...filteredRows];
+  if (!sortBy) return rows;
+
+  rows.sort((a, b) => {
+    const aVal = String(a[sortBy] ?? "");
+    const bVal = String(b[sortBy] ?? "");
+
+    if (typeof aVal === "string" && typeof bVal === "string") {
+      return sortOrder === "asc"
+        ? aVal.localeCompare(bVal)
+        : bVal.localeCompare(aVal);
+    }
+    return 0;
+  });
+
+  return rows;
+}, [filteredRows, sortBy, sortOrder]);
+
+const visibleRows = useMemo(
+  () => sortedRows.slice(0, rowsPerPage),
+  [sortedRows, rowsPerPage]
+);
+
+
+  const allVisibleSelected =
+    visibleRows.length > 0 &&
+    visibleRows.every((row) => selectedRows.has(row.id));
+
+  /* ---------- Selection ---------- */
+  const toggleRow = (id: number) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = () => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleRows.forEach((row) => next.delete(row.id));
+      } else {
+        visibleRows.forEach((row) => next.add(row.id));
+      }
+      return next;
+    });
+  };
+
+  /* ---------- Close dropdowns ---------- */
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+
+      if (listDropdownRef.current && !listDropdownRef.current.contains(target)) {
+        setIsListOpen(false);
+      }
+      if (
+        exportDropdownRef.current &&
+        !exportDropdownRef.current.contains(target)
+      ) {
+        setIsExportOpen(false);
+      }
+      if (
+        sortDropdownRef.current &&
+        !sortDropdownRef.current.contains(target)
+      ) {
+        setIsSortOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div className="h-full bg-background-card border border-border-light rounded-xl flex flex-col overflow-hidden shadow-sm">
+
+      {/* 🔝 TOP BAR — SAME AS CONTACTS */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border-light text-sm bg-background-card">
+        <div className="flex items-center gap-3">
+          <div ref={listDropdownRef} className="relative">
+            <button
+              disabled={selectedRows.size === 0}
+              onClick={() => {
+                setIsListOpen((v) => !v);
+                setIsExportOpen(false);
+              }}
+              className={`flex items-center gap-1.5 px-3 h-9 rounded-lg border transition
+                ${
+                  selectedRows.size === 0
+                    ? "opacity-40 cursor-not-allowed"
+                    : "border-border-light hover:bg-background"
+                }`}
+            >
+              <FiPlus size={14} />
+              List
+              <FiChevronDown size={14} />
+            </button>
+
+            {isListOpen && selectedRows.size > 0 && (
+              <div className="absolute mt-2 w-44 bg-background-card border border-border-light rounded-xl shadow-xl z-50">
+                <button
+                  onClick={() => {
+                    setIsModalOpen(true);
+                    setIsListOpen(false);
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-background"
+                >
+                  ➕ Add to List
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button
+            disabled={selectedRows.size === 0}
+            className={`h-9 px-4 rounded-lg font-medium transition
+              ${
+                selectedRows.size === 0
+                  ? "opacity-40 cursor-not-allowed bg-primary/30"
+                  : "bg-primary text-white hover:brightness-110"
+              }`}
+          >
+            Save
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3">
+           {/* 🔽 Sort Dropdown */}
+          <div ref={sortDropdownRef} className="relative">
+            <button
+              onClick={() => {
+                setIsSortOpen((v) => !v);
+                setIsExportOpen(false);
+                setIsListOpen(false);
+              }}
+              className="flex items-center gap-1.5 px-3 h-9 rounded-lg border
+                        border-border-light hover:bg-background transition"
+            >
+              ↑↓ Sort
+              <FiChevronDown size={14} />
+            </button>
+
+            {isSortOpen && (
+              <div
+                className="absolute right-0 mt-2 w-56 bg-background-card
+                          border border-border-light rounded-xl shadow-xl
+                          z-50 p-3 space-y-3"
+              >
+                {/* Sort By */}
+                <div className="space-y-1">
+                  <label className="text-xs text-text-secondary">Sort by</label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) =>
+                      setSortBy(e.target.value as any)
+                    }
+                    className="w-full h-8 px-2 rounded-lg bg-background
+                              border border-border-light text-sm"
+                  >
+                    <option value="">Select...</option>
+                    <option value="companyName">Company</option>
+                    <option value="industry">Industry</option>
+                    <option value="employees">Employees</option>
+                    <option value="revenue">Revenue</option>
+                  </select>
+                </div>
+
+                {/* Order */}
+                <div className="space-y-1">
+                  <label className="text-xs text-text-secondary">Order</label>
+                  <select
+                    value={sortOrder}
+                    onChange={(e) =>
+                      setSortOrder(e.target.value as "asc" | "desc")
+                    }
+                    className="w-full h-8 px-2 rounded-lg bg-background
+                              border border-border-light text-sm"
+                  >
+                    <option value="asc">Ascending</option>
+                    <option value="desc">Descending</option>
+                  </select>
+                </div>
+
+                {/* Apply */}
+                <button
+                  onClick={() => setIsSortOpen(false)}
+                  disabled={!sortBy}
+                  className={`w-full h-9 rounded-lg text-sm transition
+                    ${
+                      sortBy
+                        ? "bg-primary text-white hover:brightness-110"
+                        : "bg-primary/30 cursor-not-allowed"
+                    }`}
+                >
+                  Apply
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Export Dropdown */}
+
+          <div ref={exportDropdownRef} className="relative">
+            <button
+              disabled={selectedRows.size === 0}
+              onClick={() => {
+                setIsExportOpen((v) => !v);
+                setIsListOpen(false);
+              }}
+              className={`flex items-center gap-1.5 px-3 h-9 rounded-lg border
+                ${
+                  selectedRows.size === 0
+                    ? "opacity-40 cursor-not-allowed"
+                    : "border-border-light hover:bg-background"
+                }`}
+            >
+              <FiDownload size={14} />
+              Export
+              <FiChevronDown size={14} />
+            </button>
+
+            {isExportOpen && selectedRows.size > 0 && (
+              <div className="absolute right-0 mt-2 w-56 bg-background-card border border-border-light rounded-xl shadow-xl z-50">
+                <button
+                  onClick={() => setIsExportModalOpen(true)}
+                  className="w-full px-4 py-2 flex gap-2 hover:bg-background"
+                >
+                  <FiFileText size={14} />
+                  Export Selected
+                </button>
+                <button
+                  onClick={() => setIsExportModalOpen(true)}
+                  className="w-full px-4 py-2 flex gap-2 hover:bg-background"
+                >
+                  <FiGrid size={14} />
+                  Export All
+                </button>
+              </div>
+            )}
+          </div>
+
+          <span className="text-text-secondary">Rows</span>
+          <select
+            value={rowsPerPage}
+            onChange={(e) => setRowsPerPage(Number(e.target.value))}
+            className="h-9 px-3 rounded-lg bg-background border border-border-light"
+          >
+            <option value={5}>5</option>
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+          </select>
+
+          {selectedRows.size > 0 && (
+            <span className="text-primary font-semibold">
+              Selected: {selectedRows.size}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* 📊 TABLE — SAME INTERACTIONS */}
+      <div className="flex-1 overflow-auto">
+        <table className="min-w-[1600px] w-full text-sm border-collapse">
+          <thead className="sticky top-0 z-20 bg-background-card border-b border-border-light">
+            <tr className="text-text-secondary text-left">
+              <th className="sticky left-0 z-30 bg-background-card p-3 w-12 border-r border-border-light">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={toggleSelectAllVisible}
+                />
+              </th>
+              <th className="sticky left-12 z-30 bg-background-card p-3 w-[260px] border-r border-border-light">
+                Company
+              </th>
+              <th className="p-3">Domain</th>
+              <th className="p-3">Phone</th>
+              <th className="p-3">LinkedIn</th>
+              <th className="p-3">Location</th>
+              <th className="p-3">Industry</th>
+              <th className="p-3">Employees</th>
+              <th className="p-3">Revenue</th>
+              <th className="p-3">Action</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {visibleRows.map((row) => (
+              <tr
+                key={row.id}
+                className="group border-b border-border-light
+                hover:bg-background hover:-translate-y-[1px]
+                hover:shadow-sm transition-all duration-150"
+              >
+                <td className="sticky left-0 z-10 bg-background-card p-3 w-12 border-r border-border-light">
+                  <input
+                    type="checkbox"
+                    checked={selectedRows.has(row.id)}
+                    onChange={() => toggleRow(row.id)}
+                  />
+                </td>
+
+                <td className="sticky left-12 z-10 bg-background-card p-3 w-[260px] font-medium border-r border-border-light group-hover:bg-background transition">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={getCompanyLogo(row.domain)}
+                      className="h-6 w-6 rounded-md border border-border-light bg-white"
+                    />
+                    {row.companyName}
+                  </div>
+                </td>
+
+                <td className="p-3">{row.domain}</td>
+                <td className="p-3">{row.phone}</td>
+                <td className="p-3">{row.linkedin}</td>
+                <td className="p-3">{row.location}</td>
+                <td className="p-3">{row.industry}</td>
+                <td className="p-3">{row.employees}</td>
+                <td className="p-3">{row.revenue}</td>
+
+                <td className="p-3">
+                  <div className="flex gap-2 opacity-80 group-hover:opacity-100 transition">
+                    <button
+                      title="Add to List"
+                      onClick={() => {
+                        setIsModalOpen(true);
+                      }}
+                      className="h-7 w-7 rounded-lg flex items-center justify-center
+                                hover:bg-primary/10 hover:text-primary transition"
+                    >
+                      <FiPlus size={16} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsDrawerLoading(true);
+                        setViewCompany(row);
+
+                        // simulate API delay
+                        setTimeout(() => {
+                          setIsDrawerLoading(false);
+                        }, 900);
+                      }}
+                      title="View Company"
+                      className="h-7 w-7 rounded-lg flex items-center justify-center
+                                hover:bg-background hover:shadow-sm transition"
+                    >
+                      <FiEye size={16} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {visibleRows.length === 0 && (
+          <div className="p-6 text-center text-text-secondary">
+            No matching companies found
+          </div>
+        )}
+      </div>
+
+      {/* 🔽 FOOTER — SAME */}
+      <div className="border-t border-border-light px-4 py-2 flex justify-between bg-background-card text-sm">
+        <span className="text-text-secondary">
+          1–{rowsPerPage} of 33.6M
+        </span>
+        <div className="flex gap-2">
+          <button className="h-9 w-9 rounded-lg border border-border-light hover:bg-background">
+            <FiChevronLeft />
+          </button>
+          <button className="h-9 w-9 rounded-lg border border-border-light hover:bg-background">
+            <FiChevronRight />
+          </button>
+        </div>
+      </div>
+
+      {isModalOpen && (
+        <CompaniesModal mode="list" onClose={() => setIsModalOpen(false)} />
+      )}
+
+      {isExportModalOpen && (
+        <CompaniesModal
+          mode="export"
+          selectedCount={selectedRows.size}
+          onClose={() => setIsExportModalOpen(false)}
+        />
+      )}
+
+    {/* ================= VIEW COMPANY DRAWER ================= */}
+      {viewCompany && (
+        <div className="fixed inset-0 z-[200] flex">
+          {/* Backdrop */}
+          <div
+            className="flex-1 bg-black/30"
+            onClick={() => setViewCompany(null)}
+          />
+
+          {/* Drawer */}
+          <div className="w-[440px] bg-background-card border-l border-border-light
+                          shadow-xl overflow-y-auto">
+
+            {/* Header */}
+            <div className="p-5 border-b border-border-light flex justify-between">
+              <div className="flex items-center gap-3">
+                <img
+                  src={getCompanyLogo(viewCompany.domain)}
+                  className="h-10 w-10 rounded-md border border-border-light bg-white"
+                />
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    {viewCompany.companyName}
+                  </h2>
+                  <p className="text-xs text-text-secondary">
+                    {viewCompany.domain}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setViewCompany(null)}
+                className="h-8 w-8 rounded-lg hover:bg-background
+                          flex items-center justify-center"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Body */}
+            {isDrawerLoading ? (
+              <DrawerSkeleton />
+            ) : (
+              <div className="p-5 space-y-6">
+
+              {/* Company Details */}
+              <Section title="Company Details">
+                {viewCompany.description && (
+                  <p className="text-sm text-text-secondary leading-relaxed">
+                    {viewCompany.description}
+                  </p>
+                )}
+              </Section>
+
+              {/* Industries */}
+              {viewCompany.industries && viewCompany.industries.length > 0 && (
+                <Section title="Industries">
+                  <div className="flex flex-wrap gap-2">
+                    {viewCompany.industries.map((ind) => (
+                      <span
+                        key={ind}
+                        className="px-2 py-0.5 rounded-md bg-primary/10
+                                  text-primary text-xs"
+                      >
+                        {ind}
+                      </span>
+                    ))}
+                  </div>
+                </Section>
+              )}
+
+              <Divider />
+
+              {/* Business Information */}
+              <Section title="Business Information">
+                <Info label="Founded" value={viewCompany.foundedYear ?? "—"} />
+                <Info label="Employees" value={viewCompany.employees} />
+                <Info label="Revenue" value={viewCompany.revenue} />
+                <Info label="Headquarters" value={viewCompany.headquarters ?? viewCompany.location} />
+              </Section>
+
+              <Divider />
+
+              {/* Contact & Web */}
+              <Section title="Contact & Web">
+                <Info label="Phone" value={viewCompany.phone} />
+
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-text-secondary">Website</span>
+                  {viewCompany.website ? (
+                    <a
+                      href={viewCompany.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      {viewCompany.domain}
+                    </a>
+                  ) : (
+                    <span className="font-medium">—</span>
+                  )}
+                </div>
+              </Section>
+
+              <Divider />
+
+              {/* Links */}
+              <Section title="Links">
+                <div className="flex items-center gap-3">
+                  {viewCompany.linkedin && viewCompany.linkedin.startsWith("http") && (
+                      <a
+                        href={viewCompany.linkedin}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-9 w-9 rounded-lg border border-border-light
+                                  hover:bg-background flex items-center justify-center"
+                        title="LinkedIn"
+                      >
+                        in
+                      </a>
+                    )}
+
+                  {viewCompany.website && (
+                    <a
+                      href={viewCompany.website}
+                      target="_blank"
+                      className="h-9 w-9 rounded-lg border border-border-light
+                                hover:bg-background flex items-center justify-center"
+                      title="Website"
+                    >
+                      🌐
+                    </a>
+                  )}
+
+                  {viewCompany.twitter && (
+                    <a
+                      href={viewCompany.twitter}
+                      target="_blank"
+                      className="h-9 w-9 rounded-lg border border-border-light
+                                hover:bg-background flex items-center justify-center"
+                      title="Twitter / X"
+                    >
+                      𝕏
+                    </a>
+                  )}
+                </div>
+              </Section>
+            </div>
+            )}
+            {/* Footer Actions */}
+            <div className="p-5 border-t border-border-light flex gap-2">
+              <button
+                onClick={() => {
+                  setIsModalOpen(true);
+                  setViewCompany(null);
+                }}
+                disabled={isDrawerLoading}
+                className={`flex-1 h-9 rounded-lg border border-border-light
+                ${isDrawerLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-background"}`} 
+              >
+                Add to List
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsExportModalOpen(true);
+                  setViewCompany(null); // close drawer
+                }}
+                disabled={isDrawerLoading}
+                className={`flex-1 h-9 rounded-lg bg-primary text-white
+                  ${isDrawerLoading ? "opacity-50 cursor-not-allowed" : "hover:brightness-110"}`}
+              >
+                Export Company
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+function DrawerSkeleton() {
+  return (
+    <div className="p-5 space-y-6 animate-pulse">
+      {/* Title */}
+      <div className="flex gap-3 items-center">
+        <div className="h-10 w-10 rounded-md bg-border-light" />
+        <div className="space-y-2 flex-1">
+          <div className="h-4 w-1/2 bg-border-light rounded" />
+          <div className="h-3 w-1/3 bg-border-light rounded" />
+        </div>
+      </div>
+
+      {/* Paragraph */}
+      <div className="space-y-2">
+        <div className="h-3 w-full bg-border-light rounded" />
+        <div className="h-3 w-5/6 bg-border-light rounded" />
+        <div className="h-3 w-4/6 bg-border-light rounded" />
+      </div>
+
+      <Divider />
+
+      {/* Info rows */}
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="flex justify-between">
+          <div className="h-3 w-1/3 bg-border-light rounded" />
+          <div className="h-3 w-1/4 bg-border-light rounded" />
+        </div>
+      ))}
+
+      <Divider />
+
+      {/* Pills */}
+      <div className="flex gap-2">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="h-6 w-20 rounded-md bg-border-light"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

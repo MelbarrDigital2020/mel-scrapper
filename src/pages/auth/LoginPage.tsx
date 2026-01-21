@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import AuthLayoutSplit from "./components/AuthLayoutSplit";
@@ -27,21 +27,6 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
-
-  // Redirect to dashboard for already logged in user
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        await api.get("/auth/me");
-        // ✅ User already logged in
-        navigate("/app/dashboard", { replace: true });
-      } catch {
-        // ❌ Not logged in → stay on login page
-      }
-    };
-
-    checkAuth();
-  }, [navigate]);
 
   // Handle Lofin button click
   const handleLogin = async () => {
@@ -75,6 +60,7 @@ export default function LoginPage() {
     }
   };
 
+  // Verify otp
   const handleVerifyOtp = async () => {
     setError("");
 
@@ -92,12 +78,8 @@ export default function LoginPage() {
     try {
       setLoading(true);
 
-      await api.post("/auth/login/verify-otp", {
-        userId,
-        otp,
-      });
-
-      navigate("/dashboard", { replace: true });
+      await api.post("/auth/login/verify-otp", { userId, otp });
+      navigate("/app/dashboard", { replace: true });
     } catch (err: any) {
       setError(err?.response?.data?.message || "Invalid OTP");
     } finally {
@@ -105,6 +87,7 @@ export default function LoginPage() {
     }
   };
 
+  // Handle Reset Otp
   const handleResendOtp = async () => {
     if (!userId) return;
 

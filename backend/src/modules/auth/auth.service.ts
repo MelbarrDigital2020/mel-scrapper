@@ -4,6 +4,8 @@ import { RegisterStartDTO, LoginDTO } from "./auth.types";
 import { createRegisterOtp, verifyRegisterOtp, invalidateRegisterOtps, createLoginOtp  } from "./otp.service";
 import { generateAccessToken } from "../../utils/jwt";
 import { sendEmail } from "../../email/email.service";
+import { LoginResponse } from "./auth.types";
+
 
 export const startRegistration = async (data: RegisterStartDTO) => {
   const { firstName, lastName, email } = data;
@@ -124,7 +126,7 @@ export const completeRegistration = async (
 export const loginUser = async (
   data: LoginDTO,
   ipAddress?: string
-) => {
+): Promise<LoginResponse> => {
   const { email, password } = data;
 
   const result = await pool.query(
@@ -155,25 +157,25 @@ export const loginUser = async (
     throw new Error("Invalid email or password");
   }
 
-  // 🔐 IF 2FA ENABLED → SEND OTP
+  /* 🔐 2FA FLOW */
   if (user.two_fa_enabled) {
     await createLoginOtp(user.id, user.email);
 
     return {
       twoFaRequired: true,
-      userId: user.id
+      userId: user.id,
     };
   }
 
-  // ❌ no 2FA → issue JWT directly (fallback)
+  /* ✅ NO 2FA */
   const accessToken = generateAccessToken({
     userId: user.id,
-    email: user.email
+    email: user.email,
   });
 
   return {
     twoFaRequired: false,
-    accessToken
+    accessToken,
   };
 };
 

@@ -5,7 +5,6 @@ import AppNavbar from "./AppNavbar";
 import AppBody from "./AppBody";
 
 export default function AppLayout() {
-
   // Code For auto Collapse
   const { pathname } = useLocation();
 
@@ -30,6 +29,7 @@ export default function AppLayout() {
   // react to route change
   useEffect(() => {
     if (!userToggled.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCollapsed(autoCollapsed);
     }
   }, [autoCollapsed]);
@@ -40,10 +40,7 @@ export default function AppLayout() {
       <AppSidebar collapsed={collapsed} />
 
       <div className="flex flex-col flex-1 h-full overflow-hidden">
-        <AppNavbar
-          collapsed={collapsed}
-          onToggleSidebar={handleToggle}
-        />
+        <AppNavbar collapsed={collapsed} onToggleSidebar={handleToggle} />
         <AppBody />
       </div>
     </div>

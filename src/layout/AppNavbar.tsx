@@ -12,6 +12,15 @@ import {
 import api from "../services/api";
 import defaultImage from "../assets/default_avatar.jpg";
 
+// Logged In User Type
+type User = {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  avatar_url?: string | null;
+};
+
 export default function AppNavbar({
   collapsed,
   onToggleSidebar,
@@ -23,11 +32,26 @@ export default function AppNavbar({
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
 
   const userRef = useRef<HTMLDivElement>(null);
   const notifyRef = useRef<HTMLDivElement>(null);
 
-  /** 🌗 Theme with persistence */
+  // Get Logged in User Information
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await api.get("/auth/me");
+        setUser(res.data.user);
+      } catch {
+        navigate("/login", { replace: true });
+      }
+    };
+
+    fetchUser();
+  }, [navigate]);
+
+  // Theme with persistence */
   const [dark, setDark] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("theme") === "dark";
@@ -46,7 +70,7 @@ export default function AppNavbar({
 
   const toggleTheme = () => setDark((v) => !v);
 
-  /** ✅ Close dropdowns on outside click */
+  // Close dropdowns on outside click */
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (userRef.current && !userRef.current.contains(e.target as Node)) {
@@ -62,7 +86,7 @@ export default function AppNavbar({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  /** 🔀 Navigation handlers */
+  // Navigation handlers */
   const goToSettings = () => {
     setMenuOpen(false);
     navigate("/app/settings");
@@ -92,7 +116,7 @@ export default function AppNavbar({
         </button>
 
         <span className="text-sm hidden sm:block">
-          Hello, <b>Mel 👋</b>
+          Hello, <b>{user?.first_name || "User"} 👋</b>
         </span>
       </div>
 
@@ -152,8 +176,14 @@ export default function AppNavbar({
             onClick={() => setMenuOpen((v) => !v)}
             className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-background-section transition"
           >
-            <img src={defaultImage} className="w-8 h-8 rounded-full border" />
-            <span className="hidden sm:block">Mel</span>
+            <img
+              src={user?.avatar_url || defaultImage}
+              className="w-8 h-8 rounded-full border"
+              alt="User avatar"
+            />
+            <span className="hidden sm:block">
+              {user?.first_name || "User"}
+            </span>
             <FiChevronDown />
           </button>
 
