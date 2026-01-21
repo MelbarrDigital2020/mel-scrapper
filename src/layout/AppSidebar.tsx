@@ -1,22 +1,12 @@
 import { NavLink } from "react-router-dom";
-import {
-  FiHome,
-  FiUsers,
-  FiBriefcase,
-  FiSettings,
-} from "react-icons/fi";
+import { FiHome, FiUsers, FiBriefcase, FiSettings } from "react-icons/fi";
 
 import logoFull from "../assets/logo.png";
 import logoIcon from "../assets/logo-icon.png";
 import logoFullWhite from "../assets/logo-white.png";
 import logoIconWhite from "../assets/logo-icon-white.png";
-import SettingsPage from "../pages/settings/SettingsPage";
 
-export default function AppSidebar({
-  collapsed,
-}: {
-  collapsed: boolean;
-}) {
+export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
   return (
     <aside
       className={`
@@ -55,13 +45,32 @@ export default function AppSidebar({
         </div>
       </div>
 
-
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-1">
-        <SidebarItem to="dashboard" icon={<FiHome />} label="Dashboard" collapsed={collapsed} />
-        <SidebarItem to="contacts" icon={<FiUsers />} label="Contacts" collapsed={collapsed} />
-        <SidebarItem to="companies" icon={<FiBriefcase />} label="Companies" collapsed={collapsed} />
-        <SidebarItem to="settings" icon={<FiSettings />} label="Settings" collapsed={collapsed} />
+        <SidebarItem
+          to="dashboard"
+          icon={<FiHome />}
+          label="Dashboard"
+          collapsed={collapsed}
+        />
+        <SidebarItem
+          to="contacts"
+          icon={<FiUsers />}
+          label="Contacts"
+          collapsed={collapsed}
+        />
+        <SidebarItem
+          to="companies"
+          icon={<FiBriefcase />}
+          label="Companies"
+          collapsed={collapsed}
+        />
+        <SidebarItem
+          to="settings"
+          icon={<FiSettings />}
+          label="Settings"
+          collapsed={collapsed}
+        />
       </nav>
     </aside>
   );

@@ -30,10 +30,8 @@ export const authMiddleware = (
       });
     }
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET as string
-    ) as any;
+    const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
 
     req.user = {
       userId: decoded.userId,

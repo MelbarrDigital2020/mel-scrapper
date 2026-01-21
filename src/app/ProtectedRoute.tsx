@@ -21,7 +21,7 @@ export default function ProtectedRoute({
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center">
-        Checking session...
+        Checking session details…
       </div>
     );
   }
