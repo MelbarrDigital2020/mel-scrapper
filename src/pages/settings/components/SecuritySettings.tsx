@@ -4,7 +4,7 @@ import { FiShield, FiCheckCircle, FiLock } from "react-icons/fi";
 import PasswordStrength from "../../auth/components/PasswordStrength";
 import type { SettingsOutletContext } from "../SettingsPage";
 import api from "../../../services/api"; // adjust path if needed
-import { useToast } from "../../contacts/hooks/toast/ToastContext";
+import { useToast } from "../../shared//toast/ToastContext";
 
 export default function SecuritySettings() {
   // ✅ Get logged-in user from SettingsPage (Outlet context)

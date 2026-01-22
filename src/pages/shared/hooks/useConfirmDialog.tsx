@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import ConfirmDialog from "../../shared/hooks/dialog/ConfirmDialog";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 type ConfirmOptions = {
   title: string;

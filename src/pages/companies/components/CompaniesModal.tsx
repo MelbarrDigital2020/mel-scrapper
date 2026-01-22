@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FiX, FiChevronDown, FiChevronUp, FiPlus } from "react-icons/fi";
-import { useToast } from "../../contacts/hooks/toast/ToastContext";
+import { useToast } from "../../shared/toast/ToastContext";
 
 type Props = {
   onClose: () => void;

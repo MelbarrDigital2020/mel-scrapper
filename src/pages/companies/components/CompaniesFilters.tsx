@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from "react";
-import { useConfirmDialog } from "../../contacts/hooks/useConfirmDialog";
-import { useSaveFilterDialog } from "../../contacts/hooks/useSaveFilterDialog";
-import { useToast } from "../../contacts/hooks/toast/ToastContext";
+import { useState,useRef, useEffect, type ReactNode } from "react";
+import { useConfirmDialog } from "../../shared/hooks/useConfirmDialog";
+import { useSaveFilterDialog } from "../../shared/hooks/useSaveFilterDialog";
+import { useToast } from "../../shared/toast/ToastContext";
 
 import {
   FiChevronDown,
@@ -10,6 +10,7 @@ import {
   FiSave,
   FiGrid,
   FiUsers,
+  FiDollarSign,
   FiLayers,
   FiTarget,
   FiLock,
@@ -20,6 +21,7 @@ import {
 type SectionKey =
   | "company"
   | "employees"
+  | "revenue"     
   | "industry"
   | "location"
   | "intent";
@@ -36,6 +38,7 @@ type SavedFilter = {
 const FILTER_LABELS: Record<SectionKey, string> = {
   company: "Company",
   employees: "Employees",
+  revenue: "Revenue",
   industry: "Industry",
   location: "Location",
   intent: "Intent-Based",
@@ -58,8 +61,23 @@ const FILTER_CONFIG: {
     key: "employees",
     label: "Employees",
     icon: <FiUsers size={14} />,
-    options: ["1–10", "11–50", "51–200", "201–500", "500+"],
+    options: ["1 - 10", "11 - 50", "51 - 200", "201 - 500", "501 - 1000", "1001 - 5000", "5001 - 10,000", "10,000+", "Unknown"],
   },
+  {
+  key: "revenue",
+  label: "Revenue",
+  icon: <FiDollarSign size={14} />, // you can change icon if you want
+  options: [
+    "Upto - 5M",
+    "5M - 10M",
+    "10M - 50M",
+    "50M - 100M",
+    "100M - 250M",
+    "250M - 500M",
+    "500M - 1B",
+    "1B and Above",
+  ],
+},
   {
     key: "industry",
     label: "Industry",
@@ -91,8 +109,7 @@ const INTENT_FILTER = {
 
 /* ---------------- Main ---------------- */
 export default function CompaniesFilter() {
-  const [openSection, setOpenSection] =
-    useState<SectionKey | null>("company");
+  const [openSection, setOpenSection] = useState<SectionKey | null>("company");
 
   const confirm = useConfirmDialog();
   const saveFilterDialog = useSaveFilterDialog();
@@ -101,6 +118,7 @@ export default function CompaniesFilter() {
   const [filters, setFilters] = useState<FiltersState>({
     company: [],
     employees: [],
+    revenue: [],
     industry: [],
     location: [],
     intent: [],
@@ -108,6 +126,7 @@ export default function CompaniesFilter() {
 
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [showSaved, setShowSaved] = useState(false);
+  const savedDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const toggle = (key: SectionKey) =>
     setOpenSection((prev) => (prev === key ? null : key));
@@ -122,10 +141,30 @@ export default function CompaniesFilter() {
     setFilters({
       company: [],
       employees: [],
+      revenue: [],
       industry: [],
       location: [],
       intent: [],
     });
+
+useEffect(() => {
+  const handleOutside = (e: MouseEvent) => {
+    const target = e.target as Node;
+
+    // close saved filters dropdown on outside click
+    if (
+      showSaved &&
+      savedDropdownRef.current &&
+      !savedDropdownRef.current.contains(target)
+    ) {
+      setShowSaved(false);
+    }
+  };
+
+  document.addEventListener("mousedown", handleOutside);
+  return () => document.removeEventListener("mousedown", handleOutside);
+}, [showSaved]);
+
 // ---------------- Save Current Filter ----------------
 const saveCurrentFilter = async () => {
   const ok = await confirm({
@@ -207,7 +246,7 @@ const deleteSavedFilter = async (filter: SavedFilter) => {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Filters</h3>
 
-          <div className="relative">
+          <div ref={savedDropdownRef} className="relative">
             <button
               onClick={() => setShowSaved((v) => !v)}
               className="flex items-center gap-1 text-xs text-primary"
@@ -215,41 +254,49 @@ const deleteSavedFilter = async (filter: SavedFilter) => {
               Saved filters <FiChevronDown size={12} />
             </button>
 
-            {showSaved && savedFilters.length > 0 && (
-              <div className="absolute right-0 z-50 mt-1 w-56
-                              bg-background-card border border-border-light
-                              rounded-lg shadow-lg">
-                {savedFilters.map((sf) => (
-                  <div
-                    key={sf.id}
-                    className="group flex items-center justify-between
-                              px-3 py-2 text-xs hover:bg-background"
-                  >
-                    {/* Apply filter */}
-                    <button
-                      onClick={() => {
-                        setFilters(sf.filters);
-                        setShowSaved(false);
-                      }}
-                      className="flex-1 text-left truncate"
-                    >
-                      {sf.name}
-                    </button>
-
-                    {/* Delete */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteSavedFilter(sf);
-                      }}
-                      className="ml-2 opacity-0 group-hover:opacity-100
-                                text-red-500 hover:text-red-600 transition"
-                      title="Delete filter"
-                    >
-                      <FiX size={14} />
-                    </button>
+            {showSaved && (
+              <div
+                className="absolute right-0 z-50 mt-1 w-56
+                          bg-background-card border border-border-light
+                          rounded-lg shadow-lg overflow-hidden"
+              >
+                {savedFilters.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-text-secondary">
+                    No saved filters
                   </div>
-                ))}
+                ) : (
+                  savedFilters.map((sf) => (
+                    <div
+                      key={sf.id}
+                      className="group flex items-center justify-between
+                                px-3 py-2 text-xs hover:bg-background"
+                    >
+                      {/* Apply filter */}
+                      <button
+                        onClick={() => {
+                          setFilters(sf.filters);
+                          setShowSaved(false);
+                        }}
+                        className="flex-1 text-left truncate"
+                      >
+                        {sf.name}
+                      </button>
+
+                      {/* Delete */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteSavedFilter(sf);
+                        }}
+                        className="ml-2 opacity-0 group-hover:opacity-100
+                                  text-red-500 hover:text-red-600 transition"
+                        title="Delete filter"
+                      >
+                        <FiX size={14} />
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </div>
@@ -454,30 +501,46 @@ function MultiSelectDropdown({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const MAX_VISIBLE = 5;
+  const visibleItems = value.slice(0, MAX_VISIBLE);
+  const hiddenCount = value.length - visibleItems.length;
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (open && dropdownRef.current && !dropdownRef.current.contains(target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [open]);
+
   const toggleValue = (val: string) => {
-    onChange(
-      value.includes(val)
-        ? value.filter((v) => v !== val)
-        : [...value, val]
-    );
+    onChange(value.includes(val) ? value.filter((v) => v !== val) : [...value, val]);
   };
 
   return (
-    <div>
+    <div ref={dropdownRef} className="relative">
+      {/* Input */}
       <div
         onClick={() => setOpen((v) => !v)}
-        className="min-h-[36px] w-full flex flex-wrap gap-1 items-center px-2 py-1 rounded-lg bg-background border border-border-light cursor-pointer"
+        className="min-h-[36px] w-full flex flex-wrap gap-1 items-center
+                   px-2 py-1 rounded-lg bg-background
+                   border border-border-light cursor-pointer"
       >
         {value.length === 0 && (
-          <span className="text-xs text-text-secondary">
-            {placeholder}
-          </span>
+          <span className="text-xs text-text-secondary">{placeholder}</span>
         )}
 
-        {value.map((item) => (
+        {visibleItems.map((item) => (
           <span
             key={item}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs"
+            className="flex items-center gap-1 px-2 py-0.5
+                       rounded-md bg-primary/10 text-primary text-xs"
           >
             {item}
             <FiX
@@ -489,26 +552,36 @@ function MultiSelectDropdown({
             />
           </span>
         ))}
+
+        {hiddenCount > 0 && (
+          <span className="px-2 py-0.5 text-xs text-text-secondary">
+            +{hiddenCount} more
+          </span>
+        )}
       </div>
 
+      {/* Dropdown */}
       {open && (
-        <div className="mt-2 bg-background-card border border-border-light rounded-lg">
+        <div
+          className="absolute z-50 mt-2 w-full bg-background-card
+                     border border-border-light rounded-lg shadow-xl overflow-hidden"
+        >
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search..."
-            className="w-full h-8 px-3 text-xs bg-background border-b border-border-light outline-none"
+            className="w-full h-8 px-3 text-xs bg-background
+                       border-b border-border-light outline-none"
           />
 
           <div className="max-h-40 overflow-y-auto">
             {options
-              .filter((o) =>
-                o.toLowerCase().includes(search.toLowerCase())
-              )
+              .filter((o) => o.toLowerCase().includes(search.toLowerCase()))
               .map((opt) => (
                 <label
                   key={opt}
-                  className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-background cursor-pointer"
+                  className="flex items-center gap-2 px-3 py-2
+                             text-xs hover:bg-background cursor-pointer"
                 >
                   <input
                     type="checkbox"
@@ -525,6 +598,7 @@ function MultiSelectDropdown({
   );
 }
 
+/* ---------------- Location & Region Dropdown ---------------- */
 function LocationRegionDropdown({
   value,
   onChange,
@@ -534,10 +608,24 @@ function LocationRegionDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const MAX_VISIBLE = 5;
   const visibleItems = value.slice(0, MAX_VISIBLE);
   const hiddenCount = value.length - visibleItems.length;
+
+  useEffect(() => {
+  const handleOutside = (e: MouseEvent) => {
+    const target = e.target as Node;
+    if (open && dropdownRef.current && !dropdownRef.current.contains(target)) {
+      setOpen(false);
+    }
+  };
+
+  document.addEventListener("mousedown", handleOutside);
+  return () => document.removeEventListener("mousedown", handleOutside);
+}, [open]);
+
 
   const toggleCountry = (country: string) => {
     onChange(
@@ -557,7 +645,7 @@ function LocationRegionDropdown({
   };
 
   return (
-    <div className="relative">
+    <div ref={dropdownRef}  className="relative">
       {/* Input */}
       <div
         onClick={() => setOpen((v) => !v)}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FiX, FiChevronDown, FiChevronUp, FiPlus } from "react-icons/fi";
-import { useToast } from "../hooks/toast/ToastContext.tsx";
+import { useToast } from "../../shared/toast/ToastContext.tsx";
 
 /* ===================== PROPS ===================== */
 type Props = {
