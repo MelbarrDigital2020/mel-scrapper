@@ -1,8 +1,7 @@
-import { useState,useRef, useEffect, type ReactNode } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { useConfirmDialog } from "../../shared/hooks/useConfirmDialog";
 import { useSaveFilterDialog } from "../../shared/hooks/useSaveFilterDialog";
 import { useToast } from "../../shared/toast/ToastContext";
-import CompanyData from "../../companies/data/CompanyList.json";
 
 import {
   FiChevronDown,
@@ -16,13 +15,14 @@ import {
   FiTarget,
   FiLock,
   FiMapPin,
+  FiCheck,
 } from "react-icons/fi";
 
 /* ---------------- Types ---------------- */
 type SectionKey =
   | "company"
   | "employees"
-  | "revenue"     
+  | "revenue"
   | "industry"
   | "location"
   | "intent";
@@ -36,18 +36,6 @@ type SavedFilter = {
 };
 type OptionObj = { label: string; value: string };
 
-type CompanyItem = {
-  uuid: string;
-  name: string;
-  domain: string;
-};
-
-const COMPANY_OPTIONS: OptionObj[] =
-  (CompanyData as { companies: CompanyItem[] }).companies?.map((c) => ({
-    label: c.name,   // ✅ show & search
-    value: c.uuid,   // ✅ store in filters.company
-  })) ?? [];
-
 /* ---------------- Labels ---------------- */
 const FILTER_LABELS: Record<SectionKey, string> = {
   company: "Company",
@@ -58,67 +46,266 @@ const FILTER_LABELS: Record<SectionKey, string> = {
   intent: "Intent-Based",
 };
 
-/* ---------------- Filter Config ---------------- */
-const FILTER_CONFIG: {
-  key: SectionKey;
-  label: string;
-  icon: ReactNode;
-  options: string[] | OptionObj[];
-}[] = [
-  {
-    key: "company",
-    label: "Company",
-    icon: <FiGrid size={14} />,
-    options: COMPANY_OPTIONS,
-  },
-  {
-    key: "employees",
-    label: "Employees",
-    icon: <FiUsers size={14} />,
-    options: ["1 - 10", "11 - 50", "51 - 200", "201 - 500", "501 - 1000", "1001 - 5000", "5001 - 10,000", "10,000+", "Unknown"],
-  },
-  {
-  key: "revenue",
-  label: "Revenue",
-  icon: <FiDollarSign size={14} />, // you can change icon if you want
-  options: [
-    "Upto - 5M",
-    "5M - 10M",
-    "10M - 50M",
-    "50M - 100M",
-    "100M - 250M",
-    "250M - 500M",
-    "500M - 1B",
-    "1B and Above",
-  ],
-},
-  {
-    key: "industry",
-    label: "Industry",
-    icon: <FiLayers size={14} />,
-    options: ["SaaS", "FinTech", "Healthcare", "E-commerce"],
-  },
-];
-
 const regionCountries: Record<string, string[]> = {
-  "APAC (Asia-Pacific)": ["Afghanistan", "American Samoa", "Armenia", "Australia", "Azerbaijan", "Bangladesh", "Bhutan", "British Indian Ocean Territory", "Brunei", "Cambodia", "China", "Christmas Island", "Cocos (Keeling) Islands", "Cook Islands", "East Timor", "Fiji Islands", "French Polynesia", "Gambia The", "Guam", "Hong Kong", "India", "Indonesia", "Japan", "Kazakhstan", "Kiribati", "Kyrgyzstan", "Laos", "Macau", "Malaysia", "Maldives", "Man (Isle of)", "Marshall Islands", "Mongolia", "Myanmar", "Nauru", "Nepal", "New Caledonia", "New Zealand", "Niue", "Norfolk Island", "North Korea", "Northern Mariana Islands", "Pakistan", "Palau", "Papua new Guinea", "Philippines", "Russia", "Samoa", "Singapore", "Solomon Islands", "South Korea", "Sri Lanka", "Taiwan", "Tajikistan", "Thailand", "Tokelau", "Tonga", "Turkmenistan", "Tuvalu", "Uzbekistan", "Vanuatu", "Vietnam", "Wallis And Futuna Islands"],
-  "EMEA (Europe, Middle East & Africa)": ["Aland Islands", "Albania", "Algeria", "Andorra", "Angola", "Antarctica", "Austria", "Bahrain", "Belarus", "Belgium", "Benin", "Bosnia and Herzegovina", "Botswana", "Bouvet Island", "Bulgaria", "Burkina Faso", "Burundi", "Cameroon", "Cape Verde", "Central African Republic", "Chad", "Comoros", "Congo", "Congo The Democratic Republic Of The", "Croatia", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Egypt", "Equatorial Guinea", "Eritrea", "Estonia", "Ethiopia", "Faroe Islands", "Finland", "France", "Gabon", "Georgia", "Germany", "Ghana", "Gibraltar", "Greece", "Greenland", "Guernsey and Alderney", "Guinea", "Guinea-Bissau", "Hungary", "Iceland", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Ivory Coast", "Jersey", "Jordan", "Kenya", "Kuwait", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Macedonia", "Madagascar", "Malawi", "Mali", "Malta", "Mauritania", "Mauritius", "Mayotte", "Moldova", "Monaco", "Montenegro", "Morocco", "Mozambique", "Namibia", "Netherlands", "Niger", "Nigeria", "Norway", "Oman", "Palestinian Territory Occupied", "Poland", "Portugal", "Qatar", "Reunion", "Romania", "Rwanda", "Saint Helena", "San Marino", "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Slovakia", "Slovenia", "Somalia", "South Africa", "South Georgia", "South Sudan", "Spain", "Sudan", "Svalbard And Jan Mayen Islands", "Swaziland", "Sweden", "Switzerland", "Syria", "Tanzania", "Togo", "Tunisia", "Turkey", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "Vatican City State (Holy See)", "Western Sahara", "Yemen", "Zambia", "Zimbabwe"],
-  "LATAM (Latin America)": ["Anguilla", "Antigua And Barbuda", "Argentina", "Aruba", "Bahamas The", "Barbados", "Belize", "Bolivia", "Brazil", "Cayman Islands", "Chile", "Colombia", "Costa Rica", "Cuba", "Dominica", "Dominican Republic", "Ecuador", "El Salvador", "Falkland Islands", "French Guiana", "Grenada", "Guadeloupe", "Guatemala", "Guyana", "Haiti", "Honduras", "Jamaica", "Martinique", "Mexico", "Montserrat", "Nicaragua", "Panama", "Paraguay", "Peru", "Pitcairn Island", "Puerto Rico", "Saint Kitts And Nevis", "Saint Lucia", "Saint Pierre and Miquelon", "Saint Vincent And The Grenadines", "Saint-Barthelemy", "Saint-Martin (French part)", "Suriname", "Trinidad And Tobago", "Turks And Caicos Islands", "Uruguay", "Venezuela", "Virgin Islands (British)"],
-  "North America": ["Bermuda", "Canada", "United States", "United States Minor Outlying Islands", "Virgin Islands (US)"],
+  "APAC (Asia-Pacific)": [
+    "Afghanistan",
+    "American Samoa",
+    "Armenia",
+    "Australia",
+    "Azerbaijan",
+    "Bangladesh",
+    "Bhutan",
+    "British Indian Ocean Territory",
+    "Brunei",
+    "Cambodia",
+    "China",
+    "Christmas Island",
+    "Cocos (Keeling) Islands",
+    "Cook Islands",
+    "East Timor",
+    "Fiji Islands",
+    "French Polynesia",
+    "Gambia The",
+    "Guam",
+    "Hong Kong",
+    "India",
+    "Indonesia",
+    "Japan",
+    "Kazakhstan",
+    "Kiribati",
+    "Kyrgyzstan",
+    "Laos",
+    "Macau",
+    "Malaysia",
+    "Maldives",
+    "Man (Isle of)",
+    "Marshall Islands",
+    "Mongolia",
+    "Myanmar",
+    "Nauru",
+    "Nepal",
+    "New Caledonia",
+    "New Zealand",
+    "Niue",
+    "Norfolk Island",
+    "North Korea",
+    "Northern Mariana Islands",
+    "Pakistan",
+    "Palau",
+    "Papua new Guinea",
+    "Philippines",
+    "Russia",
+    "Samoa",
+    "Singapore",
+    "Solomon Islands",
+    "South Korea",
+    "Sri Lanka",
+    "Taiwan",
+    "Tajikistan",
+    "Thailand",
+    "Tokelau",
+    "Tonga",
+    "Turkmenistan",
+    "Tuvalu",
+    "Uzbekistan",
+    "Vanuatu",
+    "Vietnam",
+    "Wallis And Futuna Islands",
+  ],
+  "EMEA (Europe, Middle East & Africa)": [
+    "Aland Islands",
+    "Albania",
+    "Algeria",
+    "Andorra",
+    "Angola",
+    "Antarctica",
+    "Austria",
+    "Bahrain",
+    "Belarus",
+    "Belgium",
+    "Benin",
+    "Bosnia and Herzegovina",
+    "Botswana",
+    "Bouvet Island",
+    "Bulgaria",
+    "Burkina Faso",
+    "Burundi",
+    "Cameroon",
+    "Cape Verde",
+    "Central African Republic",
+    "Chad",
+    "Comoros",
+    "Congo",
+    "Congo The Democratic Republic Of The",
+    "Croatia",
+    "Cyprus",
+    "Czech Republic",
+    "Denmark",
+    "Djibouti",
+    "Egypt",
+    "Equatorial Guinea",
+    "Eritrea",
+    "Estonia",
+    "Ethiopia",
+    "Faroe Islands",
+    "Finland",
+    "France",
+    "Gabon",
+    "Georgia",
+    "Germany",
+    "Ghana",
+    "Gibraltar",
+    "Greece",
+    "Greenland",
+    "Guernsey and Alderney",
+    "Guinea",
+    "Guinea-Bissau",
+    "Hungary",
+    "Iceland",
+    "Iran",
+    "Iraq",
+    "Ireland",
+    "Israel",
+    "Italy",
+    "Ivory Coast",
+    "Jersey",
+    "Jordan",
+    "Kenya",
+    "Kuwait",
+    "Latvia",
+    "Lebanon",
+    "Lesotho",
+    "Liberia",
+    "Libya",
+    "Liechtenstein",
+    "Lithuania",
+    "Luxembourg",
+    "Macedonia",
+    "Madagascar",
+    "Malawi",
+    "Mali",
+    "Malta",
+    "Mauritania",
+    "Mauritius",
+    "Mayotte",
+    "Moldova",
+    "Monaco",
+    "Montenegro",
+    "Morocco",
+    "Mozambique",
+    "Namibia",
+    "Netherlands",
+    "Niger",
+    "Nigeria",
+    "Norway",
+    "Oman",
+    "Palestinian Territory Occupied",
+    "Poland",
+    "Portugal",
+    "Qatar",
+    "Reunion",
+    "Romania",
+    "Rwanda",
+    "Saint Helena",
+    "San Marino",
+    "Sao Tome and Principe",
+    "Saudi Arabia",
+    "Senegal",
+    "Serbia",
+    "Seychelles",
+    "Sierra Leone",
+    "Slovakia",
+    "Slovenia",
+    "Somalia",
+    "South Africa",
+    "South Georgia",
+    "South Sudan",
+    "Spain",
+    "Sudan",
+    "Svalbard And Jan Mayen Islands",
+    "Swaziland",
+    "Sweden",
+    "Switzerland",
+    "Syria",
+    "Tanzania",
+    "Togo",
+    "Tunisia",
+    "Turkey",
+    "Uganda",
+    "Ukraine",
+    "United Arab Emirates",
+    "United Kingdom",
+    "Vatican City State (Holy See)",
+    "Western Sahara",
+    "Yemen",
+    "Zambia",
+    "Zimbabwe",
+  ],
+  "LATAM (Latin America)": [
+    "Anguilla",
+    "Antigua And Barbuda",
+    "Argentina",
+    "Aruba",
+    "Bahamas The",
+    "Barbados",
+    "Belize",
+    "Bolivia",
+    "Brazil",
+    "Cayman Islands",
+    "Chile",
+    "Colombia",
+    "Costa Rica",
+    "Cuba",
+    "Dominica",
+    "Dominican Republic",
+    "Ecuador",
+    "El Salvador",
+    "Falkland Islands",
+    "French Guiana",
+    "Grenada",
+    "Guadeloupe",
+    "Guatemala",
+    "Guyana",
+    "Haiti",
+    "Honduras",
+    "Jamaica",
+    "Martinique",
+    "Mexico",
+    "Montserrat",
+    "Nicaragua",
+    "Panama",
+    "Paraguay",
+    "Peru",
+    "Pitcairn Island",
+    "Puerto Rico",
+    "Saint Kitts And Nevis",
+    "Saint Lucia",
+    "Saint Pierre and Miquelon",
+    "Saint Vincent And The Grenadines",
+    "Saint-Barthelemy",
+    "Saint-Martin (French part)",
+    "Suriname",
+    "Trinidad And Tobago",
+    "Turks And Caicos Islands",
+    "Uruguay",
+    "Venezuela",
+    "Virgin Islands (British)",
+  ],
+  "North America": [
+    "Bermuda",
+    "Canada",
+    "United States",
+    "United States Minor Outlying Islands",
+    "Virgin Islands (US)",
+  ],
   "Not Specified": ["unknown"],
 };
-
 
 const INTENT_FILTER = {
   key: "intent" as const,
   label: "Intent-Based",
   icon: <FiTarget size={14} />,
-  options: [
-    "Hiring",
-    "Fundraising",
-    "Expansion",
-    "Buying Software",
-  ],
+  options: ["Hiring", "Fundraising", "Expansion", "Buying Software"],
 };
 
 /* ---------------- Main ---------------- */
@@ -142,14 +329,68 @@ export default function CompaniesFilter() {
   const [showSaved, setShowSaved] = useState(false);
   const savedDropdownRef = useRef<HTMLDivElement | null>(null);
 
+  const [companyOptions, setCompanyOptions] = useState<OptionObj[]>([]);
+  const [companiesLoaded, setCompaniesLoaded] = useState(false);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
+
+  const FILTER_CONFIG: {
+    key: SectionKey;
+    label: string;
+    icon: ReactNode;
+    options: string[] | OptionObj[];
+  }[] = [
+    {
+      key: "company",
+      label: "Company",
+      icon: <FiGrid size={14} />,
+      options: companyOptions,
+    },
+    {
+      key: "employees",
+      label: "Employees",
+      icon: <FiUsers size={14} />,
+      options: [
+        "1 - 10",
+        "11 - 50",
+        "51 - 200",
+        "201 - 500",
+        "501 - 1000",
+        "1001 - 5000",
+        "5001 - 10,000",
+        "10,000+",
+        "Unknown",
+      ],
+    },
+    {
+      key: "revenue",
+      label: "Revenue",
+      icon: <FiDollarSign size={14} />,
+      options: [
+        "Upto - 5M",
+        "5M - 10M",
+        "10M - 50M",
+        "50M - 100M",
+        "100M - 250M",
+        "250M - 500M",
+        "500M - 1B",
+        "1B and Above",
+      ],
+    },
+    {
+      key: "industry",
+      label: "Industry",
+      icon: <FiLayers size={14} />,
+      options: ["SaaS", "FinTech", "Healthcare", "E-commerce"],
+    },
+  ];
+
   const toggle = (key: SectionKey) =>
     setOpenSection((prev) => (prev === key ? null : key));
 
   const updateFilter = (key: SectionKey, values: string[]) =>
     setFilters((prev) => ({ ...prev, [key]: values }));
 
-  const clearFilter = (key: SectionKey) =>
-    updateFilter(key, []);
+  const clearFilter = (key: SectionKey) => updateFilter(key, []);
 
   const clearAll = () =>
     setFilters({
@@ -161,41 +402,71 @@ export default function CompaniesFilter() {
       intent: [],
     });
 
-useEffect(() => {
-  const handleOutside = (e: MouseEvent) => {
-    const target = e.target as Node;
+  const loadCompanies = async () => {
+    if (companiesLoaded || companiesLoading) return;
 
-    // close saved filters dropdown on outside click
-    if (
-      showSaved &&
-      savedDropdownRef.current &&
-      !savedDropdownRef.current.contains(target)
-    ) {
-      setShowSaved(false);
+    try {
+      setCompaniesLoading(true);
+
+      // ✅ If your file is /public/data/CompanyList.json then change to "/data/CompanyList.json"
+      const res = await fetch("/data/CompanyList.json");
+      const json = (await res.json()) as {
+        companies: { uuid: string; name: string; domain: string }[];
+      };
+
+      const opts: OptionObj[] = (json.companies || []).map((c) => ({
+        label: c.name,
+        value: c.uuid,
+      }));
+
+      setCompanyOptions(opts);
+      setCompaniesLoaded(true);
+    } catch {
+      showToast({
+        type: "error",
+        title: "Failed to load companies",
+        message: "CompanyList.json could not be loaded from public folder.",
+      });
+    } finally {
+      setCompaniesLoading(false);
     }
   };
 
-  document.addEventListener("mousedown", handleOutside);
-  return () => document.removeEventListener("mousedown", handleOutside);
-}, [showSaved]);
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
 
-// ---------------- Save Current Filter ----------------
-const saveCurrentFilter = async () => {
-  const ok = await confirm({
-    title: "Are you absolutely sure?",
-    description:
-      "This will save the current company filter configuration. You can reuse it later from saved filters.",
-    confirmText: "Continue",
-    cancelText: "Cancel",
-  });
+      // close saved filters dropdown on outside click
+      if (
+        showSaved &&
+        savedDropdownRef.current &&
+        !savedDropdownRef.current.contains(target)
+      ) {
+        setShowSaved(false);
+      }
+    };
 
-  if (!ok) return;
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [showSaved]);
 
-  const name = await saveFilterDialog();
-  if (!name) return;
+  // ---------------- Save Current Filter ----------------
+  const saveCurrentFilter = async () => {
+    const ok = await confirm({
+      title: "Are you absolutely sure?",
+      description:
+        "This will save the current company filter configuration. You can reuse it later from saved filters.",
+      confirmText: "Continue",
+      cancelText: "Cancel",
+    });
 
- const exists = savedFilters.some(
-      (f) => f.name.toLowerCase() === name.toLowerCase()
+    if (!ok) return;
+
+    const name = await saveFilterDialog();
+    if (!name) return;
+
+    const exists = savedFilters.some(
+      (f) => f.name.toLowerCase() === name.toLowerCase(),
     );
 
     if (exists) {
@@ -207,54 +478,63 @@ const saveCurrentFilter = async () => {
       return;
     }
 
+    setSavedFilters((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        name,
+        filters,
+      },
+    ]);
 
-  setSavedFilters((prev) => [
-    ...prev,
-    {
-      id: Date.now().toString(),
-      name,
-      filters,
-    },
-  ]);
+    // ✅ Toast on success
+    showToast({
+      type: "success",
+      title: "Filter saved",
+      message: `"${name}" has been added to your saved filters.`,
+    });
+  };
+  // ---------------- Delete Saved Filter ----------------
+  const deleteSavedFilter = async (filter: SavedFilter) => {
+    const ok = await confirm({
+      title: "Delete saved filter?",
+      description:
+        "This action cannot be undone. The saved company filter will be permanently removed.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      variant: "danger",
+    });
 
-  // ✅ Toast on success
-  showToast({
-    type: "success",
-    title: "Filter saved",
-    message: `"${name}" has been added to your saved filters.`,
-  });
-};
-// ---------------- Delete Saved Filter ----------------
-const deleteSavedFilter = async (filter: SavedFilter) => {
-  const ok = await confirm({
-    title: "Delete saved filter?",
-    description:
-      "This action cannot be undone. The saved company filter will be permanently removed.",
-    confirmText: "Delete",
-    cancelText: "Cancel",
-    variant: "danger",
-  });
+    if (!ok) return;
 
-  if (!ok) return;
+    setSavedFilters((prev) => prev.filter((f) => f.id !== filter.id));
 
-  setSavedFilters((prev) =>
-    prev.filter((f) => f.id !== filter.id)
-  );
-
-  showToast({
-    type: "error", // danger toast
-    title: "Filter deleted",
-    message: `"${filter.name}" has been permanently removed.`,
-  });
-};
+    showToast({
+      type: "error", // danger toast
+      title: "Filter deleted",
+      message: `"${filter.name}" has been permanently removed.`,
+    });
+  };
 
   const activeFilterSummary = Object.entries(filters).filter(
-    ([_, values]) => values.length > 0
+    ([, values]) => values.length > 0,
   );
+
+  const hasAnyFilters = Object.values(filters).some((arr) => arr.length > 0);
+
+  const applyFilters = () => {
+    // ✅ TODO: call API / update table based on `filters`
+    console.log("Applying filters:", filters);
+
+    showToast({
+      type: "success",
+      title: "Filters applied",
+      message: "Your company filters have been applied.",
+    });
+  };
 
   return (
     <div className="h-full bg-background-card border border-border-light rounded-xl flex flex-col">
-
       {/* Header */}
       <div className="px-4 py-3 border-b border-border-light space-y-2">
         <div className="flex items-center justify-between">
@@ -341,7 +621,6 @@ const deleteSavedFilter = async (filter: SavedFilter) => {
 
       {/* Scroll */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2 text-sm">
-
         {/* Standard Filters */}
         {FILTER_CONFIG.map(({ key, label, icon, options }) => (
           <FilterAccordion
@@ -368,12 +647,13 @@ const deleteSavedFilter = async (filter: SavedFilter) => {
               <MultiSelectDropdownObject
                 placeholder="Search company"
                 options={options as OptionObj[]}
-                value={filters[key]} // ✅ UUIDs
+                value={filters[key]}
                 onChange={(v) => updateFilter(key, v)}
-                limitWhenEmptySearch={1000} // ✅ show first 1000 when search empty
+                limitWhenEmptySearch={200} // ✅ 1000 is too much for 2L list
+                onOpen={loadCompanies}
+                loading={companiesLoading}
               />
             )}
-
           </FilterAccordion>
         ))}
 
@@ -396,7 +676,6 @@ const deleteSavedFilter = async (filter: SavedFilter) => {
             onChange={(v) => updateFilter("location", v)}
           />
         </FilterAccordion>
-
 
         {/* Intent */}
         <FilterAccordion
@@ -432,17 +711,28 @@ const deleteSavedFilter = async (filter: SavedFilter) => {
           onClick={() => {}}
           onClear={() => {}}
         >
-          <div className="text-xs text-text-secondary">
-            Upgrade to unlock
-          </div>
+          <div className="text-xs text-text-secondary">Upgrade to unlock</div>
         </FilterAccordion>
       </div>
 
       {/* Footer */}
-      <div className="border-t border-border-light p-3 bg-background-card">
+      <div className="border-t border-border-light p-3 bg-background-card flex gap-2">
+        {hasAnyFilters && (
+          <button
+            onClick={applyFilters}
+            className="flex-1 flex items-center justify-center gap-1 h-9 px-3 rounded-lg bg-primary text-white text-sm hover:opacity-90"
+          >
+            <FiCheck size={14} />
+            Apply Filters
+          </button>
+        )}
+
         <button
           onClick={saveCurrentFilter}
-          className="flex items-center justify-center gap-1 h-9 px-3 rounded-lg border border-border-light text-sm hover:bg-background"
+          disabled={!hasAnyFilters} // ✅ optional: block saving empty filters
+          className={`flex-1 flex items-center justify-center gap-1 h-9 px-3 rounded-lg border border-border-light text-sm
+            ${!hasAnyFilters ? "opacity-50 cursor-not-allowed" : "hover:bg-background"}
+          `}
         >
           <FiSave size={14} />
           Save Filter
@@ -450,7 +740,6 @@ const deleteSavedFilter = async (filter: SavedFilter) => {
       </div>
       {confirm.Dialog}
       {saveFilterDialog.Dialog}
-
     </div>
   );
 }
@@ -535,7 +824,11 @@ function MultiSelectDropdown({
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (open && dropdownRef.current && !dropdownRef.current.contains(target)) {
+      if (
+        open &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     };
@@ -545,13 +838,15 @@ function MultiSelectDropdown({
   }, [open]);
 
   const toggleValue = (val: string) => {
-    onChange(value.includes(val) ? value.filter((v) => v !== val) : [...value, val]);
+    onChange(
+      value.includes(val) ? value.filter((v) => v !== val) : [...value, val],
+    );
   };
 
-    const normalizedSearch = search.trim().toLowerCase();
+  const normalizedSearch = search.trim().toLowerCase();
 
   const finalOptions = options.filter((o) =>
-    o.toLowerCase().includes(normalizedSearch)
+    o.toLowerCase().includes(normalizedSearch),
   );
 
   // ✅ Select all only if search is not empty and results > 0
@@ -569,7 +864,6 @@ function MultiSelectDropdown({
       onChange([...new Set([...value, ...finalOptions])]);
     }
   };
-
 
   return (
     <div ref={dropdownRef} className="relative">
@@ -622,36 +916,36 @@ function MultiSelectDropdown({
                        border-b border-border-light outline-none"
           />
 
-            <div className="max-h-40 overflow-y-auto">
-                {/* ✅ Select all only after search */}
-                {showSelectAll && (
-                  <label className="flex items-center gap-2 px-3 py-2 text-xs font-semibold border-b border-border-light hover:bg-background cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={allResultsSelected}
-                      onChange={toggleSelectAllResults}
-                    />
-                    Select all
-                    <span className="text-text-secondary font-normal">
-                      ({finalOptions.length})
-                    </span>
-                  </label>
-                )}
+          <div className="max-h-40 overflow-y-auto">
+            {/* ✅ Select all only after search */}
+            {showSelectAll && (
+              <label className="flex items-center gap-2 px-3 py-2 text-xs font-semibold border-b border-border-light hover:bg-background cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allResultsSelected}
+                  onChange={toggleSelectAllResults}
+                />
+                Select all
+                <span className="text-text-secondary font-normal">
+                  ({finalOptions.length})
+                </span>
+              </label>
+            )}
 
-                {finalOptions.map((opt) => (
-                <label
-                  key={opt}
-                  className="flex items-center gap-2 px-3 py-2
+            {finalOptions.map((opt) => (
+              <label
+                key={opt}
+                className="flex items-center gap-2 px-3 py-2
                              text-xs hover:bg-background cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={value.includes(opt)}
-                    onChange={() => toggleValue(opt)}
-                  />
-                  {opt}
-                </label>
-              ))}
+              >
+                <input
+                  type="checkbox"
+                  checked={value.includes(opt)}
+                  onChange={() => toggleValue(opt)}
+                />
+                {opt}
+              </label>
+            ))}
           </div>
         </div>
       )}
@@ -676,23 +970,26 @@ function LocationRegionDropdown({
   const hiddenCount = value.length - visibleItems.length;
 
   useEffect(() => {
-  const handleOutside = (e: MouseEvent) => {
-    const target = e.target as Node;
-    if (open && dropdownRef.current && !dropdownRef.current.contains(target)) {
-      setOpen(false);
-    }
-  };
+    const handleOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        open &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
+    };
 
-  document.addEventListener("mousedown", handleOutside);
-  return () => document.removeEventListener("mousedown", handleOutside);
-}, [open]);
-
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [open]);
 
   const toggleCountry = (country: string) => {
     onChange(
       value.includes(country)
         ? value.filter((v) => v !== country)
-        : [...value, country]
+        : [...value, country],
     );
   };
 
@@ -701,12 +998,12 @@ function LocationRegionDropdown({
     onChange(
       allSelected
         ? value.filter((v) => !countries.includes(v))
-        : [...new Set([...value, ...countries])]
+        : [...new Set([...value, ...countries])],
     );
   };
 
   return (
-    <div ref={dropdownRef}  className="relative">
+    <div ref={dropdownRef} className="relative">
       {/* Input */}
       <div
         onClick={() => setOpen((v) => !v)}
@@ -748,8 +1045,10 @@ function LocationRegionDropdown({
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-50 mt-2 w-full bg-background-card
-                        border border-border-light rounded-lg shadow-xl">
+        <div
+          className="absolute z-50 mt-2 w-full bg-background-card
+                        border border-border-light rounded-lg shadow-xl"
+        >
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -761,21 +1060,20 @@ function LocationRegionDropdown({
           <div className="max-h-60 overflow-y-auto p-2 space-y-3">
             {Object.entries(regionCountries).map(([region, countries]) => {
               const filtered = countries.filter((c) =>
-                c.toLowerCase().includes(search.toLowerCase())
+                c.toLowerCase().includes(search.toLowerCase()),
               );
               if (filtered.length === 0) return null;
 
-              const allSelected = countries.every((c) =>
-                value.includes(c)
-              );
+              const allSelected = countries.every((c) => value.includes(c));
               const someSelected =
-                !allSelected &&
-                countries.some((c) => value.includes(c));
+                !allSelected && countries.some((c) => value.includes(c));
 
               return (
                 <div key={region}>
-                  <label className="flex items-center gap-2
-                                    text-xs font-semibold cursor-pointer">
+                  <label
+                    className="flex items-center gap-2
+                                    text-xs font-semibold cursor-pointer"
+                  >
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -813,19 +1111,33 @@ function LocationRegionDropdown({
   );
 }
 
+function useDebouncedValue<T>(value: T, delay = 250) {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+
+  return debounced;
+}
 
 function MultiSelectDropdownObject({
   placeholder,
   options,
-  value, // UUID array
+  value,
   onChange,
   limitWhenEmptySearch,
+  onOpen,
+  loading,
 }: {
   placeholder: string;
   options: OptionObj[];
   value: string[];
   onChange: (v: string[]) => void;
   limitWhenEmptySearch?: number;
+  onOpen?: () => void;
+  loading?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -836,7 +1148,11 @@ function MultiSelectDropdownObject({
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (open && dropdownRef.current && !dropdownRef.current.contains(target)) {
+      if (
+        open &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     };
@@ -845,18 +1161,21 @@ function MultiSelectDropdownObject({
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [open]);
 
-  const normalizedSearch = search.trim().toLowerCase();
+  const debouncedSearch = useDebouncedValue(search, 250);
+  const normalizedSearch = open ? debouncedSearch.trim().toLowerCase() : "";
 
-  // ✅ Search only by company name (label)
-  const filteredOptions = options.filter((o) =>
-    o.label.toLowerCase().includes(normalizedSearch)
-  );
+  const MIN_SEARCH = 2; // start searching after 2 chars
+  const MAX_RESULTS = 200; // never render more than 200 rows
 
-  // ✅ show only first N when no search
-  const finalOptions =
-    normalizedSearch.length === 0 && limitWhenEmptySearch
-      ? filteredOptions.slice(0, limitWhenEmptySearch)
-      : filteredOptions;
+  const shouldSearch = normalizedSearch.length >= MIN_SEARCH;
+
+  const finalOptions: OptionObj[] = shouldSearch
+    ? options
+        .filter((o) => o.label.toLowerCase().includes(normalizedSearch))
+        .slice(0, MAX_RESULTS)
+    : limitWhenEmptySearch
+      ? options.slice(0, limitWhenEmptySearch)
+      : [];
 
   // ✅ show selected pills as company names
   const selectedOptionObjs = value
@@ -867,14 +1186,15 @@ function MultiSelectDropdownObject({
   const hiddenCount = selectedOptionObjs.length - visibleItems.length;
 
   const toggleValue = (uuid: string) => {
-    onChange(value.includes(uuid) ? value.filter((v) => v !== uuid) : [...value, uuid]);
+    onChange(
+      value.includes(uuid) ? value.filter((v) => v !== uuid) : [...value, uuid],
+    );
   };
 
   // ✅ SELECT ALL (only for search results)
   const resultValues = finalOptions.map((o) => o.value);
 
-  const showSelectAll =
-    normalizedSearch.length > 0 && finalOptions.length > 0;
+  const showSelectAll = normalizedSearch.length > 0 && finalOptions.length > 0;
 
   const allResultsSelected =
     resultValues.length > 0 && resultValues.every((id) => value.includes(id));
@@ -891,7 +1211,13 @@ function MultiSelectDropdownObject({
     <div ref={dropdownRef} className="relative">
       {/* Input */}
       <div
-        onClick={() => setOpen((v) => !v)}
+        onClick={() =>
+          setOpen((v) => {
+            const next = !v;
+            if (next) onOpen?.();
+            return next;
+          })
+        }
         className="min-h-[36px] w-full flex flex-wrap gap-1 items-center px-2 py-1 rounded-lg bg-background border border-border-light cursor-pointer"
       >
         {value.length === 0 && (
@@ -932,6 +1258,28 @@ function MultiSelectDropdownObject({
           />
 
           <div className="max-h-40 overflow-y-auto">
+            {loading && (
+              <div className="px-3 py-2 text-xs text-text-secondary">
+                Loading companies...
+              </div>
+            )}
+
+            {!loading &&
+              normalizedSearch.length === 0 &&
+              options.length === 0 && (
+                <div className="px-3 py-2 text-xs text-text-secondary">
+                  Open to load companies
+                </div>
+              )}
+
+            {!loading &&
+              normalizedSearch.length > 0 &&
+              finalOptions.length === 0 && (
+                <div className="px-3 py-2 text-xs text-text-secondary">
+                  No results
+                </div>
+              )}
+
             {/* ✅ Select all only when search is not empty and results > 0 */}
             {showSelectAll && (
               <label className="flex items-center gap-2 px-3 py-2 text-xs font-semibold border-b border-border-light hover:bg-background cursor-pointer">
