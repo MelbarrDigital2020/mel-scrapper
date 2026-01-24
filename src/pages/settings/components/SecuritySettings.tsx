@@ -5,6 +5,7 @@ import PasswordStrength from "../../auth/components/PasswordStrength";
 import type { SettingsOutletContext } from "../SettingsPage";
 import api from "../../../services/api"; // adjust path if needed
 import { useToast } from "../../shared//toast/ToastContext";
+import { useConfirmDialog } from "../../shared/hooks/useConfirmDialog";
 
 export default function SecuritySettings() {
   // ✅ Get logged-in user from SettingsPage (Outlet context)
@@ -17,6 +18,8 @@ export default function SecuritySettings() {
 
   // LoadTosta
   const { showToast } = useToast();
+  const confirm = useConfirmDialog();
+
 
   // ✅ 2FA comes from DB/user (NOT local useState(false))
   const twoFAEnabled = !!user?.two_fa_enabled;
@@ -76,6 +79,81 @@ export default function SecuritySettings() {
     }
   };
 
+  const handleChangePassword = async () => {
+      if (!user) return;
+
+      // Frontend guard (extra safety)
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        showToast({
+          type: "error",
+          title: "Missing Fields",
+          message: "Please fill all password fields.",
+        });
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        showToast({
+          type: "error",
+          title: "Password Mismatch",
+          message: "New password and confirm password must match.",
+        });
+        return;
+      }
+
+      if (!isPasswordStrong) {
+        showToast({
+          type: "error",
+          title: "Weak Password",
+          message: "Please choose a stronger password.",
+        });
+        return;
+      }
+
+      // ✅ Confirmation dialog
+      const ok = await confirm({
+        title: "Change password?",
+        description:
+          "Are you sure you want to change your password? You may need to sign in again on other devices.",
+        confirmText: "Yes, change",
+        cancelText: "Cancel",
+        variant: "danger",
+      });
+
+      if (!ok) return;
+
+      try {
+        await api.patch("/users/me/password", {
+          current_password: currentPassword,
+          new_password: newPassword,
+          confirm_password: confirmPassword,
+        });
+
+        showToast({
+          type: "success",
+          title: "Password Updated",
+          message: "Your password has been changed successfully.",
+        });
+
+        // Clear fields after success
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      } catch (e: any) {
+        console.error(e);
+
+        const msg =
+          e?.response?.data?.message ||
+          "Unable to update password. Please try again.";
+
+        showToast({
+          type: "error",
+          title: "Update Failed",
+          message: msg,
+        });
+      }
+  };
+
   if (!user) {
     return (
       <div className="max-w-3xl text-sm text-gray-500 dark:text-gray-400">
@@ -86,6 +164,7 @@ export default function SecuritySettings() {
 
   return (
     <div className="max-w-3xl space-y-10 text-gray-900 dark:text-gray-100">
+      {confirm.Dialog}
       <h2 className="text-xl font-semibold">Security</h2>
 
       {/* ================= 2FA ================= */}
@@ -185,6 +264,7 @@ export default function SecuritySettings() {
 
         <div className="flex justify-end">
           <button
+            onClick={handleChangePassword}
             disabled={!canUpdatePassword}
             className={`px-5 py-2 rounded-lg text-sm font-medium transition
               ${
@@ -229,6 +309,8 @@ function PasswordField({
           dark:focus:ring-blue-500/30
         "
       />
+      
     </div>
+    
   );
 }

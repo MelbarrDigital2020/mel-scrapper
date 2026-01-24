@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { authMiddleware } from "../../middlewares/auth.middleware";
-import { toggleTwoFA } from "./user.controller";
+import { toggleTwoFA, changePassword  } from "./user.controller";
 
 const router = Router();
 
 
 router.patch("/me/2fa", authMiddleware, toggleTwoFA);
+router.patch("/me/password", authMiddleware, changePassword);
 
 export default router;

@@ -2,6 +2,7 @@ import { useState,useRef, useEffect, type ReactNode } from "react";
 import { useConfirmDialog } from "../../shared/hooks/useConfirmDialog";
 import { useSaveFilterDialog } from "../../shared/hooks/useSaveFilterDialog";
 import { useToast } from "../../shared/toast/ToastContext";
+import CompanyData from "../../companies/data/CompanyList.json";
 
 import {
   FiChevronDown,
@@ -33,6 +34,19 @@ type SavedFilter = {
   name: string;
   filters: FiltersState;
 };
+type OptionObj = { label: string; value: string };
+
+type CompanyItem = {
+  uuid: string;
+  name: string;
+  domain: string;
+};
+
+const COMPANY_OPTIONS: OptionObj[] =
+  (CompanyData as { companies: CompanyItem[] }).companies?.map((c) => ({
+    label: c.name,   // ✅ show & search
+    value: c.uuid,   // ✅ store in filters.company
+  })) ?? [];
 
 /* ---------------- Labels ---------------- */
 const FILTER_LABELS: Record<SectionKey, string> = {
@@ -49,13 +63,13 @@ const FILTER_CONFIG: {
   key: SectionKey;
   label: string;
   icon: ReactNode;
-  options: string[];
+  options: string[] | OptionObj[];
 }[] = [
   {
     key: "company",
     label: "Company",
     icon: <FiGrid size={14} />,
-    options: ["Google", "Microsoft", "Deloitte", "Amazon", "Stripe", "Shopify"],
+    options: COMPANY_OPTIONS,
   },
   {
     key: "employees",
@@ -343,12 +357,23 @@ const deleteSavedFilter = async (filter: SavedFilter) => {
             onClick={() => toggle(key)}
             onClear={() => clearFilter(key)}
           >
-            <MultiSelectDropdown
-              placeholder={`Search ${label.toLowerCase()}`}
-              options={options}
-              value={filters[key]}
-              onChange={(v) => updateFilter(key, v)}
-            />
+            {Array.isArray(options) && typeof options[0] === "string" ? (
+              <MultiSelectDropdown
+                placeholder={`Search ${label.toLowerCase()}`}
+                options={options as string[]}
+                value={filters[key]}
+                onChange={(v) => updateFilter(key, v)}
+              />
+            ) : (
+              <MultiSelectDropdownObject
+                placeholder="Search company"
+                options={options as OptionObj[]}
+                value={filters[key]} // ✅ UUIDs
+                onChange={(v) => updateFilter(key, v)}
+                limitWhenEmptySearch={1000} // ✅ show first 1000 when search empty
+              />
+            )}
+
           </FilterAccordion>
         ))}
 
@@ -523,6 +548,29 @@ function MultiSelectDropdown({
     onChange(value.includes(val) ? value.filter((v) => v !== val) : [...value, val]);
   };
 
+    const normalizedSearch = search.trim().toLowerCase();
+
+  const finalOptions = options.filter((o) =>
+    o.toLowerCase().includes(normalizedSearch)
+  );
+
+  // ✅ Select all only if search is not empty and results > 0
+  const showSelectAll = normalizedSearch.length > 0 && finalOptions.length > 1;
+
+  const allResultsSelected =
+    finalOptions.length > 0 && finalOptions.every((opt) => value.includes(opt));
+
+  const toggleSelectAllResults = () => {
+    if (allResultsSelected) {
+      // remove only current search results
+      onChange(value.filter((v) => !finalOptions.includes(v)));
+    } else {
+      // add only current search results
+      onChange([...new Set([...value, ...finalOptions])]);
+    }
+  };
+
+
   return (
     <div ref={dropdownRef} className="relative">
       {/* Input */}
@@ -574,10 +622,23 @@ function MultiSelectDropdown({
                        border-b border-border-light outline-none"
           />
 
-          <div className="max-h-40 overflow-y-auto">
-            {options
-              .filter((o) => o.toLowerCase().includes(search.toLowerCase()))
-              .map((opt) => (
+            <div className="max-h-40 overflow-y-auto">
+                {/* ✅ Select all only after search */}
+                {showSelectAll && (
+                  <label className="flex items-center gap-2 px-3 py-2 text-xs font-semibold border-b border-border-light hover:bg-background cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allResultsSelected}
+                      onChange={toggleSelectAllResults}
+                    />
+                    Select all
+                    <span className="text-text-secondary font-normal">
+                      ({finalOptions.length})
+                    </span>
+                  </label>
+                )}
+
+                {finalOptions.map((opt) => (
                 <label
                   key={opt}
                   className="flex items-center gap-2 px-3 py-2
@@ -745,6 +806,160 @@ function LocationRegionDropdown({
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function MultiSelectDropdownObject({
+  placeholder,
+  options,
+  value, // UUID array
+  onChange,
+  limitWhenEmptySearch,
+}: {
+  placeholder: string;
+  options: OptionObj[];
+  value: string[];
+  onChange: (v: string[]) => void;
+  limitWhenEmptySearch?: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const MAX_VISIBLE = 5;
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (open && dropdownRef.current && !dropdownRef.current.contains(target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [open]);
+
+  const normalizedSearch = search.trim().toLowerCase();
+
+  // ✅ Search only by company name (label)
+  const filteredOptions = options.filter((o) =>
+    o.label.toLowerCase().includes(normalizedSearch)
+  );
+
+  // ✅ show only first N when no search
+  const finalOptions =
+    normalizedSearch.length === 0 && limitWhenEmptySearch
+      ? filteredOptions.slice(0, limitWhenEmptySearch)
+      : filteredOptions;
+
+  // ✅ show selected pills as company names
+  const selectedOptionObjs = value
+    .map((uuid) => options.find((o) => o.value === uuid))
+    .filter(Boolean) as OptionObj[];
+
+  const visibleItems = selectedOptionObjs.slice(0, MAX_VISIBLE);
+  const hiddenCount = selectedOptionObjs.length - visibleItems.length;
+
+  const toggleValue = (uuid: string) => {
+    onChange(value.includes(uuid) ? value.filter((v) => v !== uuid) : [...value, uuid]);
+  };
+
+  // ✅ SELECT ALL (only for search results)
+  const resultValues = finalOptions.map((o) => o.value);
+
+  const showSelectAll =
+    normalizedSearch.length > 0 && finalOptions.length > 0;
+
+  const allResultsSelected =
+    resultValues.length > 0 && resultValues.every((id) => value.includes(id));
+
+  const toggleSelectAllResults = () => {
+    if (allResultsSelected) {
+      onChange(value.filter((v) => !resultValues.includes(v)));
+    } else {
+      onChange([...new Set([...value, ...resultValues])]);
+    }
+  };
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      {/* Input */}
+      <div
+        onClick={() => setOpen((v) => !v)}
+        className="min-h-[36px] w-full flex flex-wrap gap-1 items-center px-2 py-1 rounded-lg bg-background border border-border-light cursor-pointer"
+      >
+        {value.length === 0 && (
+          <span className="text-xs text-text-secondary">{placeholder}</span>
+        )}
+
+        {visibleItems.map((item) => (
+          <span
+            key={item.value}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs"
+          >
+            {item.label}
+            <FiX
+              size={12}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleValue(item.value);
+              }}
+            />
+          </span>
+        ))}
+
+        {hiddenCount > 0 && (
+          <span className="px-2 py-0.5 text-xs text-text-secondary">
+            +{hiddenCount} more
+          </span>
+        )}
+      </div>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute z-50 mt-2 w-full bg-background-card border border-border-light rounded-lg shadow-xl overflow-hidden">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search company..."
+            className="w-full h-8 px-3 text-xs bg-background border-b border-border-light outline-none"
+          />
+
+          <div className="max-h-40 overflow-y-auto">
+            {/* ✅ Select all only when search is not empty and results > 0 */}
+            {showSelectAll && (
+              <label className="flex items-center gap-2 px-3 py-2 text-xs font-semibold border-b border-border-light hover:bg-background cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allResultsSelected}
+                  onChange={toggleSelectAllResults}
+                />
+                Select all
+                <span className="text-text-secondary font-normal">
+                  ({finalOptions.length})
+                </span>
+              </label>
+            )}
+
+            {finalOptions.map((opt) => (
+              <label
+                key={opt.value}
+                className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-background cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={value.includes(opt.value)}
+                  onChange={() => toggleValue(opt.value)}
+                />
+                {opt.label}
+              </label>
+            ))}
           </div>
         </div>
       )}

@@ -11,7 +11,8 @@ export default function AppLayout() {
   const autoCollapsed = useMemo(() => {
     return (
       pathname.startsWith("/app/contacts") ||
-      pathname.startsWith("/app/companies")
+      pathname.startsWith("/app/companies") ||
+      pathname.startsWith("/app/settings")
     );
   }, [pathname]);
 

@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, type ReactNode } from "react";
 import { useConfirmDialog } from "../../shared/hooks/useConfirmDialog";
 import { useSaveFilterDialog } from "../../shared/hooks/useSaveFilterDialog";
 import { useToast } from "../../shared/toast/ToastContext";
+import JobTitleData from "../data/JobTitle.json";
+import CompanyData from "../../companies/data/CompanyList.json";
 
 import {
   FiChevronDown,
@@ -44,6 +46,19 @@ type SavedFilter = {
   name: string;
   filters: FiltersState;
 };
+/* ---------------- Company Options ---------------- */
+type CompanyItem = {
+  uuid: string;
+  name: string;
+  domain: string;
+};
+
+const COMPANY_OPTIONS: { label: string; value: string }[] =
+  (CompanyData as { companies: CompanyItem[] }).companies?.map((c) => ({
+    label: c.name,   // ✅ shown & searched
+    value: c.uuid,   // ✅ stored in filters.company
+  })) ?? [];
+
 
 /* ---------------- Labels ---------------- */
 const FILTER_LABELS: Record<SectionKey, string> = {
@@ -69,19 +84,22 @@ const FILTER_ICONS: Record<SectionKey, React.ReactNode> = {
   intent: <FiTarget size={14} />,
 
 };
+const JOB_TITLE_OPTIONS: string[] = JobTitleData.jobtitle ?? [];
 
 /* ---------------- Filter Config (Backend Friendly) ---------------- */
+type OptionObj = { label: string; value: string };
+
 const FILTER_CONFIG: {
   key: SectionKey;
   label: string;
   icon: React.ReactNode;
-  options: string[];
+  options: string[] | OptionObj[];
 }[] = [
   {
     key: "jobTitles",
     label: "Job Titles",
     icon: FILTER_ICONS.jobTitles,
-    options: ["Manager", "Director", "VP", "Founder", "CEO"],
+    options: JOB_TITLE_OPTIONS,
   },
   {
     key: "jobLevel",
@@ -93,7 +111,7 @@ const FILTER_CONFIG: {
     key: "company",
     label: "Company",
     icon: FILTER_ICONS.company,
-    options: ["Google", "Microsoft", "PwC", "Deloitte", "Amazon"],
+    options: COMPANY_OPTIONS,
   },
   {
     key: "employees",
@@ -103,7 +121,7 @@ const FILTER_CONFIG: {
   },
   {
     key: "industry",
-    label: "Industry & Keywords",
+    label: "Industry",
     icon: FILTER_ICONS.industry,
     options: ["SaaS", "Fintech", "Healthcare", "E-commerce"],
   },
@@ -270,6 +288,8 @@ const activeFilterSummary = Object.entries(filters).filter(
   ([_, values]) => values.length > 0
 );
 
+
+
   return (
     <div className="h-full bg-background-card border border-border-light rounded-xl flex flex-col">
 
@@ -354,27 +374,40 @@ const activeFilterSummary = Object.entries(filters).filter(
 
         {/* ---------------- STANDARD FILTERS ---------------- */}
         {FILTER_CONFIG.map(({ key, label, icon, options }) => (
-          <FilterAccordion
-            key={key}
-            title={
-              <span className="flex items-center gap-2">
-                {icon}
-                {label}
-              </span>
-            }
-            count={filters[key].length}
-            isOpen={openSection === key}
-            onClick={() => toggle(key)}
-            onClear={() => clearFilter(key)}
-          >
-            <MultiSelectDropdown
-              placeholder={`Search ${label.toLowerCase()}`}
-              options={options}
-              value={filters[key]}
-              onChange={(v) => updateFilter(key, v)}
-            />
-          </FilterAccordion>
-        ))}
+            <FilterAccordion
+              key={key}
+              title={
+                <span className="flex items-center gap-2">
+                  {icon}
+                  {label}
+                </span>
+              }
+              count={filters[key].length}
+              isOpen={openSection === key}
+              onClick={() => toggle(key)}
+              onClear={() => clearFilter(key)}
+            >
+              {Array.isArray(options) && typeof options[0] === "string" ? (
+                <MultiSelectDropdown
+                  placeholder={`Search ${label.toLowerCase()}`}
+                  options={options as string[]}
+                  value={filters[key]}
+                  onChange={(v) => updateFilter(key, v)}
+                  limitWhenEmptySearch={
+                    key === "jobTitles" ? 1000 : undefined
+                  }
+                />
+              ) : (
+                <MultiSelectDropdownObject
+                  placeholder="Search company"
+                  options={options as { label: string; value: string }[]}
+                  value={filters[key]} // ✅ UUIDs stored here
+                  onChange={(v) => updateFilter(key, v)}
+                  limitWhenEmptySearch={key === "company" ? 1000 : undefined} // ✅ like job titles
+                />
+              )}
+            </FilterAccordion>
+          ))}
          {/* // ---------------- Location Filter (SPECIAL) ---------------- */}
         <FilterAccordion
           title={
@@ -637,11 +670,13 @@ function MultiSelectDropdown({
   options,
   value,
   onChange,
+  limitWhenEmptySearch,
 }: {
   placeholder: string;
   options: string[];
   value: string[];
   onChange: (v: string[]) => void;
+  limitWhenEmptySearch?: number; 
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -651,19 +686,6 @@ function MultiSelectDropdown({
   const MAX_VISIBLE = 5;
   const visibleItems = value.slice(0, MAX_VISIBLE);
   const hiddenCount = value.length - visibleItems.length;
-
-  useEffect(() => {
-  const handleOutside = (e: MouseEvent) => {
-    const target = e.target as Node;
-    if (open && dropdownRef.current && !dropdownRef.current.contains(target)) {
-      setOpen(false);
-    }
-  };
-
-  document.addEventListener("mousedown", handleOutside);
-  return () => document.removeEventListener("mousedown", handleOutside);
-}, [open]);
-
 
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
@@ -677,8 +699,35 @@ function MultiSelectDropdown({
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [open]);
 
+
   const toggleValue = (val: string) => {
     onChange(value.includes(val) ? value.filter((v) => v !== val) : [...value, val]);
+  };
+
+  const normalizedSearch = search.trim().toLowerCase();
+
+  const filteredOptions = options.filter((o) =>
+    o.toLowerCase().includes(normalizedSearch)
+  );
+
+  const finalOptions =
+    normalizedSearch.length === 0 && limitWhenEmptySearch
+      ? filteredOptions.slice(0, limitWhenEmptySearch)
+      : filteredOptions;
+
+  const showSelectAll = normalizedSearch.length > 0 && finalOptions.length > 0;
+
+  const allResultsSelected =
+    finalOptions.length > 0 && finalOptions.every((opt) => value.includes(opt));
+
+  const toggleSelectAllResults = () => {
+    if (allResultsSelected) {
+      // remove only search result options
+      onChange(value.filter((v) => !finalOptions.includes(v)));
+    } else {
+      // add only search result options
+      onChange([...new Set([...value, ...finalOptions])]);
+    }
   };
 
   return (
@@ -726,9 +775,20 @@ function MultiSelectDropdown({
           />
 
           <div className="max-h-40 overflow-y-auto">
-            {options
-              .filter((o) => o.toLowerCase().includes(search.toLowerCase()))
-              .map((opt) => (
+            {showSelectAll && (
+                <label className="flex items-center gap-2 px-3 py-2 text-xs font-semibold border-b border-border-light hover:bg-background cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allResultsSelected}
+                    onChange={toggleSelectAllResults}
+                  />
+                  Select all
+                  <span className="text-text-secondary font-normal">
+                    ({finalOptions.length})
+                  </span>
+                </label>
+              )}
+            {finalOptions.map((opt) => (
                 <label
                   key={opt}
                   className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-background cursor-pointer"
@@ -741,6 +801,158 @@ function MultiSelectDropdown({
                   {opt}
                 </label>
               ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Multi Select Dropdown (Object Options) ---------------- */
+function MultiSelectDropdownObject({
+  placeholder,
+  options,
+  value, // UUID array
+  onChange,
+  limitWhenEmptySearch,
+}: {
+  placeholder: string;
+  options: OptionObj[];
+  value: string[]; // ✅ stores UUIDs
+  onChange: (v: string[]) => void;
+  limitWhenEmptySearch?: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const MAX_VISIBLE = 5;
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (open && dropdownRef.current && !dropdownRef.current.contains(target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [open]);
+
+  const normalizedSearch = search.trim().toLowerCase();
+
+  // ✅ Search only on label (company name)
+  const filteredOptions = options.filter((o) =>
+    o.label.toLowerCase().includes(normalizedSearch)
+  );
+
+  const finalOptions =
+    normalizedSearch.length === 0 && limitWhenEmptySearch
+      ? filteredOptions.slice(0, limitWhenEmptySearch)
+      : filteredOptions;
+
+  const toggleValue = (uuid: string) => {
+    onChange(value.includes(uuid) ? value.filter((v) => v !== uuid) : [...value, uuid]);
+  };
+
+  // ✅ Show selected pills as company name (label)
+  const selectedOptionObjs = value
+    .map((uuid) => options.find((o) => o.value === uuid))
+    .filter(Boolean) as OptionObj[];
+
+  const visibleItems = selectedOptionObjs.slice(0, MAX_VISIBLE);
+  const hiddenCount = selectedOptionObjs.length - visibleItems.length;
+  const resultValues = finalOptions.map((o) => o.value);
+
+  const showSelectAll = normalizedSearch.length > 0 && finalOptions.length > 0;
+
+
+  const allResultsSelected =
+    resultValues.length > 0 && resultValues.every((id) => value.includes(id));
+
+  const toggleSelectAllResults = () => {
+    if (allResultsSelected) {
+      // remove only searched UUIDs
+      onChange(value.filter((v) => !resultValues.includes(v)));
+    } else {
+      // add only searched UUIDs
+      onChange([...new Set([...value, ...resultValues])]);
+    }
+  };
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      {/* Input */}
+      <div
+        onClick={() => setOpen((v) => !v)}
+        className="min-h-[36px] w-full flex flex-wrap gap-1 items-center px-2 py-1 rounded-lg bg-background border border-border-light cursor-pointer"
+      >
+        {value.length === 0 && (
+          <span className="text-xs text-text-secondary">{placeholder}</span>
+        )}
+
+        {visibleItems.map((item) => (
+          <span
+            key={item.value}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs"
+          >
+            {item.label}
+            <FiX
+              size={12}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleValue(item.value);
+              }}
+            />
+          </span>
+        ))}
+
+        {hiddenCount > 0 && (
+          <span className="px-2 py-0.5 text-xs text-text-secondary">
+            +{hiddenCount} more
+          </span>
+        )}
+      </div>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute z-50 mt-2 w-full bg-background-card border border-border-light rounded-lg shadow-xl overflow-hidden">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search company..."
+            className="w-full h-8 px-3 text-xs bg-background border-b border-border-light outline-none"
+          />
+
+          <div className="max-h-40 overflow-y-auto">
+            {showSelectAll && (
+              <label className="flex items-center gap-2 px-3 py-2 text-xs font-semibold border-b border-border-light hover:bg-background cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allResultsSelected}
+                  onChange={toggleSelectAllResults}
+                />
+                Select all
+                <span className="text-text-secondary font-normal">
+                  ({finalOptions.length})
+                </span>
+              </label>
+            )}
+
+            {finalOptions.map((opt) => (
+              <label
+                key={opt.value}
+                className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-background cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={value.includes(opt.value)}
+                  onChange={() => toggleValue(opt.value)}
+                />
+                {opt.label}
+              </label>
+            ))}
           </div>
         </div>
       )}

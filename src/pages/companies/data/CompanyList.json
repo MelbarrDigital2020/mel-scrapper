@@ -1,0 +1,14 @@
+{
+  "companies": [
+    { "uuid": "c_001", "name": "Omkar", "domain": "omkar.com" },
+    { "uuid": "c_002", "name": "Microsoft", "domain": "microsoft.com" },
+    { "uuid": "c_003", "name": "Amazon", "domain": "amazon.com" },
+    { "uuid": "c_004", "name": "Deloitte", "domain": "deloitte.com" },
+    { "uuid": "c_005", "name": "PwC", "domain": "pwc.com" },
+    { "uuid": "c_006", "name": "Infosys", "domain": "infosys.com" },
+    { "uuid": "c_007", "name": "TCS", "domain": "tcs.com" },
+    { "uuid": "c_008", "name": "Wipro", "domain": "wipro.com" },
+    { "uuid": "c_009", "name": "Accenture", "domain": "accenture.com" },
+    { "uuid": "c_010", "name": "Zoho", "domain": "zoho.com" }
+  ]
+}
