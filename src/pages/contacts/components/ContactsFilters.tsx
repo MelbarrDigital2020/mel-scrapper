@@ -407,7 +407,6 @@ function useDebouncedValue<T>(value: T, delay = 250) {
 
   return debounced;
 }
-
 /* ---------------- Main ---------------- */
 export default function ContactsFilter() {
   const [openSection, setOpenSection] = useState<SectionKey | null>(
@@ -761,7 +760,6 @@ export default function ContactsFilter() {
     </div>
   );
 }
-
 /* ---------------- Location Region Dropdown ---------------- */
 function LocationRegionDropdown({
   value,
@@ -888,7 +886,6 @@ function LocationRegionDropdown({
     </div>
   );
 }
-
 /* ---------------- Accordion ---------------- */
 function FilterAccordion({
   title,
@@ -944,7 +941,6 @@ function FilterAccordion({
     </div>
   );
 }
-
 /* ---------------- Multi Select Dropdown ---------------- */
 function MultiSelectDropdown({
   placeholder,
@@ -1116,7 +1112,6 @@ function MultiSelectDropdown({
     </div>
   );
 }
-
 /* ---------------- Multi Select Dropdown (Object Options) ---------------- */
 function MultiSelectDropdownObject({
   placeholder,

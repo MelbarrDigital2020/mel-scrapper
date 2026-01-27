@@ -4,19 +4,9 @@ import { useSaveFilterDialog } from "../../shared/hooks/useSaveFilterDialog";
 import { useToast } from "../../shared/toast/ToastContext";
 
 import {
-  FiChevronDown,
-  FiChevronUp,
-  FiX,
-  FiSave,
-  FiGrid,
-  FiUsers,
-  FiDollarSign,
-  FiLayers,
-  FiTarget,
-  FiLock,
-  FiMapPin,
-  FiCheck,
+  FiChevronDown, FiChevronUp,FiX,FiSave,FiGrid,FiUsers,FiDollarSign,FiLayers,FiTarget,FiLock,FiMapPin,FiCheck,
 } from "react-icons/fi";
+import CompanyData from "../data/CompanyList.json";
 
 /* ---------------- Types ---------------- */
 type SectionKey =
@@ -35,6 +25,22 @@ type SavedFilter = {
   filters: FiltersState;
 };
 type OptionObj = { label: string; value: string };
+
+type Props = {
+  onApply: (filters: FiltersState) => void;
+};
+
+type CompanyItem = {
+  uuid: string;
+  name: string;
+  domain: string;
+};
+
+const COMPANY_OPTIONS: OptionObj[] =
+  ((CompanyData as { companies: CompanyItem[] }).companies ?? []).map((c) => ({
+    label: c.name,
+    value: c.uuid,
+  }));
 
 /* ---------------- Labels ---------------- */
 const FILTER_LABELS: Record<SectionKey, string> = {
@@ -309,7 +315,7 @@ const INTENT_FILTER = {
 };
 
 /* ---------------- Main ---------------- */
-export default function CompaniesFilter() {
+export default function CompaniesFilter({ onApply }: Props) {
   const [openSection, setOpenSection] = useState<SectionKey | null>("company");
 
   const confirm = useConfirmDialog();
@@ -329,10 +335,8 @@ export default function CompaniesFilter() {
   const [showSaved, setShowSaved] = useState(false);
   const savedDropdownRef = useRef<HTMLDivElement | null>(null);
 
-  const [companyOptions, setCompanyOptions] = useState<OptionObj[]>([]);
-  const [companiesLoaded, setCompaniesLoaded] = useState(false);
-  const [companiesLoading, setCompaniesLoading] = useState(false);
-
+  const companyOptions = COMPANY_OPTIONS;
+  
   const FILTER_CONFIG: {
     key: SectionKey;
     label: string;
@@ -356,8 +360,8 @@ export default function CompaniesFilter() {
         "201 - 500",
         "501 - 1000",
         "1001 - 5000",
-        "5001 - 10,000",
-        "10,000+",
+        "5001 - 10000",
+        "10000+",
         "Unknown",
       ],
     },
@@ -366,7 +370,7 @@ export default function CompaniesFilter() {
       label: "Revenue",
       icon: <FiDollarSign size={14} />,
       options: [
-        "Upto - 5M",
+        "upto - 5M",
         "5M - 10M",
         "10M - 50M",
         "50M - 100M",
@@ -401,36 +405,6 @@ export default function CompaniesFilter() {
       location: [],
       intent: [],
     });
-
-  const loadCompanies = async () => {
-    if (companiesLoaded || companiesLoading) return;
-
-    try {
-      setCompaniesLoading(true);
-
-      // ✅ If your file is /public/data/CompanyList.json then change to "/data/CompanyList.json"
-      const res = await fetch("/data/CompanyList.json");
-      const json = (await res.json()) as {
-        companies: { uuid: string; name: string; domain: string }[];
-      };
-
-      const opts: OptionObj[] = (json.companies || []).map((c) => ({
-        label: c.name,
-        value: c.uuid,
-      }));
-
-      setCompanyOptions(opts);
-      setCompaniesLoaded(true);
-    } catch {
-      showToast({
-        type: "error",
-        title: "Failed to load companies",
-        message: "CompanyList.json could not be loaded from public folder.",
-      });
-    } finally {
-      setCompaniesLoading(false);
-    }
-  };
 
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
@@ -522,15 +496,9 @@ export default function CompaniesFilter() {
 
   const hasAnyFilters = Object.values(filters).some((arr) => arr.length > 0);
 
+  // Apply Filer
   const applyFilters = () => {
-    // ✅ TODO: call API / update table based on `filters`
-    console.log("Applying filters:", filters);
-
-    showToast({
-      type: "success",
-      title: "Filters applied",
-      message: "Your company filters have been applied.",
-    });
+    onApply(filters); 
   };
 
   return (
@@ -649,9 +617,7 @@ export default function CompaniesFilter() {
                 options={options as OptionObj[]}
                 value={filters[key]}
                 onChange={(v) => updateFilter(key, v)}
-                limitWhenEmptySearch={200} // ✅ 1000 is too much for 2L list
-                onOpen={loadCompanies}
-                loading={companiesLoading}
+                limitWhenEmptySearch={200}
               />
             )}
           </FilterAccordion>
@@ -743,7 +709,6 @@ export default function CompaniesFilter() {
     </div>
   );
 }
-
 /* ---------------- Accordion ---------------- */
 function FilterAccordion({
   title,
@@ -799,7 +764,6 @@ function FilterAccordion({
     </div>
   );
 }
-
 /* ---------------- Multi Select Dropdown (SAME AS CONTACTS) ---------------- */
 function MultiSelectDropdown({
   placeholder,
@@ -952,7 +916,6 @@ function MultiSelectDropdown({
     </div>
   );
 }
-
 /* ---------------- Location & Region Dropdown ---------------- */
 function LocationRegionDropdown({
   value,
@@ -1110,7 +1073,7 @@ function LocationRegionDropdown({
     </div>
   );
 }
-
+/* ---------------- Utils & Types ---------------- */
 function useDebouncedValue<T>(value: T, delay = 250) {
   const [debounced, setDebounced] = useState(value);
 
@@ -1121,23 +1084,19 @@ function useDebouncedValue<T>(value: T, delay = 250) {
 
   return debounced;
 }
-
+/* ---------------- Multi Select Dropdown for OptionObj ---------------- */
 function MultiSelectDropdownObject({
   placeholder,
   options,
   value,
   onChange,
   limitWhenEmptySearch,
-  onOpen,
-  loading,
 }: {
   placeholder: string;
   options: OptionObj[];
   value: string[];
   onChange: (v: string[]) => void;
   limitWhenEmptySearch?: number;
-  onOpen?: () => void;
-  loading?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -1211,13 +1170,8 @@ function MultiSelectDropdownObject({
     <div ref={dropdownRef} className="relative">
       {/* Input */}
       <div
-        onClick={() =>
-          setOpen((v) => {
-            const next = !v;
-            if (next) onOpen?.();
-            return next;
-          })
-        }
+        onClick={() => setOpen((v) => !v)}
+
         className="min-h-[36px] w-full flex flex-wrap gap-1 items-center px-2 py-1 rounded-lg bg-background border border-border-light cursor-pointer"
       >
         {value.length === 0 && (
@@ -1258,27 +1212,16 @@ function MultiSelectDropdownObject({
           />
 
           <div className="max-h-40 overflow-y-auto">
-            {loading && (
+            {normalizedSearch.length > 0 && finalOptions.length === 0 && (
+              <div className="px-3 py-2 text-xs text-text-secondary">No results</div>
+            )}
+
+            {normalizedSearch.length === 0 && options.length === 0 && (
               <div className="px-3 py-2 text-xs text-text-secondary">
-                Loading companies...
+                No companies loaded
               </div>
             )}
 
-            {!loading &&
-              normalizedSearch.length === 0 &&
-              options.length === 0 && (
-                <div className="px-3 py-2 text-xs text-text-secondary">
-                  Open to load companies
-                </div>
-              )}
-
-            {!loading &&
-              normalizedSearch.length > 0 &&
-              finalOptions.length === 0 && (
-                <div className="px-3 py-2 text-xs text-text-secondary">
-                  No results
-                </div>
-              )}
 
             {/* ✅ Select all only when search is not empty and results > 0 */}
             {showSelectAll && (

@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { FiUser, FiShield, FiBell } from "react-icons/fi";
+import { FiUser, FiShield, FiBell, FiRefreshCw } from "react-icons/fi";
 import api from "../../services/api";
 import type { User } from "../../types/user";
-
+ 
 export type SettingsOutletContext = {
   user: User | null;
   setUser: React.Dispatch<React.SetStateAction<User | null>>;
 };
-
+ 
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
-
+ 
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -22,10 +22,10 @@ export default function SettingsPage() {
         navigate("/login", { replace: true });
       }
     };
-
+ 
     fetchUser();
   }, [navigate]);
-
+ 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Sidebar */}
@@ -33,7 +33,7 @@ export default function SettingsPage() {
         <h2 className="mb-4 text-xs font-semibold text-gray-500 dark:text-gray-400">
           SETTINGS
         </h2>
-
+ 
         <ul className="space-y-1 text-sm">
           <SidebarLink to="profile" icon={<FiUser />} label="My Profile" />
           <SidebarLink to="security" icon={<FiShield />} label="Security" />
@@ -42,9 +42,10 @@ export default function SettingsPage() {
             icon={<FiBell />}
             label="Notifications"
           />
+          <SidebarLink to="sync" icon={<FiRefreshCw />} label="Sync Data" />
         </ul>
       </aside>
-
+ 
       {/* Content */}
       <main className="flex-1 p-8 shadow-sm text-gray-900 dark:text-gray-100">
         {/* ✅ PASS USER TO ALL SETTINGS CHILD ROUTES */}
@@ -53,7 +54,7 @@ export default function SettingsPage() {
     </div>
   );
 }
-
+ 
 /* Sidebar Link */
 function SidebarLink({
   to,
@@ -84,3 +85,5 @@ function SidebarLink({
     </NavLink>
   );
 }
+ 
+ 

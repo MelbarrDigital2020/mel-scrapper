@@ -30,13 +30,13 @@ async function syncCompanies(onProgress: (p: number) => void) {
   onProgress(10);
 
   const query = `
-    SELECT DISTINCT ON (LOWER(name))
+    SELECT DISTINCT ON (LOWER(domain))
       id,
       name,
       domain
     FROM companies
     WHERE name IS NOT NULL
-    ORDER BY LOWER(name), id
+    ORDER BY LOWER(domain), id
   `;
 
   const { rows } = await pool.query<CompanyRow>(query);

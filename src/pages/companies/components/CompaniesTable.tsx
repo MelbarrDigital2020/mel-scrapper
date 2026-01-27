@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import CompaniesModal from "./CompaniesModal";
 import { Section, Info, Divider } from "../../shared/components/DrawerSections";
-
+import api from "../../../services/api";
 import {
   FiPlus,
   FiEye,
@@ -11,6 +11,7 @@ import {
   FiChevronRight,
   FiFileText,
   FiGrid,
+  FiLinkedin
 } from "react-icons/fi";
 
 /* ---------- Company Logo Helper ---------- */
@@ -19,7 +20,7 @@ const getCompanyLogo = (domain: string) =>
 
 /* ---------- Types ---------- */
 type Company = {
-  id: number;
+  id: string;
   companyName: string;
   domain: string;
   description?: string;
@@ -37,49 +38,25 @@ type Company = {
   foundedYear?: string;
 };
 
-/* ---------- Dummy Companies ---------- */
-const COMPANIES: Company[] = [
-  {
-    id: 1,
-    companyName: "Google",
-    domain: "google.com",
-    description:
-      "Google is a multinational technology company specializing in Internet-related services and products.",
-    industry: "Technology",
-    industries: ["Technology", "AI", "Cloud"],
-    phone: "+1 650-253-0000",
-    linkedin: "https://linkedin.com/company/google",
-    website: "https://www.google.com",
-    twitter: "https://twitter.com/google",
-    location: "USA",
-    headquarters: "Mountain View, CA",
-    employees: "10000+",
-    revenue: "$100B+",
-    foundedYear: "1998",
-  },
-  {
-    id: 2,
-    companyName: "Stripe",
-    domain: "stripe.com",
-    description:
-      "Stripe is a technology company that builds economic infrastructure for the internet.",
-    industry: "FinTech",
-    industries: ["FinTech", "Payments", "SaaS"],
-    phone: "+1 888-963-8955",
-    linkedin: "https://linkedin.com/company/stripe",
-    website: "https://stripe.com",
-    twitter: "https://twitter.com/stripe",
-    location: "USA",
-    headquarters: "San Francisco, CA",
-    employees: "5000+",
-    revenue: "$10B+",
-    foundedYear: "2010",
-  },
-];
 
-export default function CompaniesTable({ search }: { search: string }) {
+export default function CompaniesTable({
+  search,
+  filters,
+  onLoadingChange,
+}: {
+  search: string;
+  filters: {
+    company: string[];
+    employees: string[];
+    revenue: string[];
+    industry: string[];
+    location: string[];
+    intent: string[];
+  };
+  onLoadingChange?: (loading: boolean) => void;
+}) {
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
   const [isListOpen, setIsListOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -92,66 +69,46 @@ export default function CompaniesTable({ search }: { search: string }) {
   const exportDropdownRef = useRef<HTMLDivElement | null>(null);
 
   /* ---------- Sort Dropdown Ref ---------- */
-  const sortDropdownRef = useRef<HTMLDivElement | null>(null);  
-    /* ---------- SORT STATE ---------- */
-    const [isSortOpen, setIsSortOpen] = useState(false);
-    
-    const [sortBy, setSortBy] = useState<
-        "companyName" | "industry" | "employees" | "revenue" | ""
-      >("");
+  const sortDropdownRef = useRef<HTMLDivElement | null>(null);
+  /* ---------- SORT STATE ---------- */
+  const [isSortOpen, setIsSortOpen] = useState(false);
 
-    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortBy, setSortBy] = useState<
+    "companyName" | "industry" | "employees" | "revenue" | ""
+  >("");
+
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  const [rows, setRows] = useState<Company[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+
+  const isValidLink = (url?: string) =>
+    !!url && /^https?:\/\//i.test(url.trim());
+
 
   /* ---------- Search ---------- */
-  const normalizedSearch = search.trim().toLowerCase();
 
-  const filteredRows = useMemo(() => {
-    if (!normalizedSearch) return COMPANIES;
-    return COMPANIES.filter(
-      (c) =>
-        c.companyName.toLowerCase().includes(normalizedSearch) ||
-        c.domain.toLowerCase().includes(normalizedSearch)
-    );
-  }, [normalizedSearch]);
-
-/* ---------- Sorting ---------- */
-const sortedRows = useMemo(() => {
-  const rows = [...filteredRows];
-  if (!sortBy) return rows;
-
-  rows.sort((a, b) => {
-    const aVal = String(a[sortBy] ?? "");
-    const bVal = String(b[sortBy] ?? "");
-
-    if (typeof aVal === "string" && typeof bVal === "string") {
-      return sortOrder === "asc"
-        ? aVal.localeCompare(bVal)
-        : bVal.localeCompare(aVal);
-    }
-    return 0;
-  });
-
-  return rows;
-}, [filteredRows, sortBy, sortOrder]);
-
-const visibleRows = useMemo(
-  () => sortedRows.slice(0, rowsPerPage),
-  [sortedRows, rowsPerPage]
-);
-
+  const visibleRows = useMemo(() => rows, [rows]);
 
   const allVisibleSelected =
     visibleRows.length > 0 &&
     visibleRows.every((row) => selectedRows.has(row.id));
 
   /* ---------- Selection ---------- */
-  const toggleRow = (id: number) => {
+  const toggleRow = (id: string) => {
     setSelectedRows((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
+
+  useEffect(() => {
+    onLoadingChange?.(loading);
+  }, [loading, onLoadingChange]);
+
 
   const toggleSelectAllVisible = () => {
     setSelectedRows((prev) => {
@@ -191,6 +148,69 @@ const visibleRows = useMemo(
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, filters, rowsPerPage]);
+
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      console.log("✅ Companies search payload:", {
+        search,
+        filters,
+        page,
+        limit: rowsPerPage,
+        sortBy,
+        sortOrder,
+      });
+      try {
+        setLoading(true);
+
+        const res = await api.post("/companies/search", {
+          search,
+          filters,
+          page,
+          limit: rowsPerPage,
+          sortBy:
+            sortBy === "companyName"
+              ? "name"
+              : sortBy === "employees"
+                ? "employee_range"
+                : sortBy === "revenue"
+                  ? "revenue_range"
+                  : sortBy === "industry"
+                    ? "industry"
+                    : "name",
+          sortOrder,
+        });
+
+        const data = res.data?.data ?? [];
+        const mapped: Company[] = data.map((c: any) => ({
+          id: c.id,
+          companyName: c.name ?? "",
+          domain: c.domain ?? "",
+          phone: c.company_phone ?? "",
+          linkedin: c.linkedin_url ?? "",
+          website: c.website ?? undefined,
+          location: c.country ?? "",
+          industry: c.industry ?? "",
+          employees: c.employee_range ?? "",
+          revenue: c.revenue_range ?? "",
+        }));
+
+        setRows(mapped);
+        setSelectedRows(new Set());
+        setTotal(res.data?.total ?? 0);
+      } catch (e) {
+        setRows([]);
+        setTotal(0);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCompanies();
+  }, [search, filters, page, rowsPerPage, sortBy, sortOrder]);
+
   return (
     <div className="h-full bg-background-card border border-border-light rounded-xl flex flex-col overflow-hidden shadow-sm">
 
@@ -205,10 +225,9 @@ const visibleRows = useMemo(
                 setIsExportOpen(false);
               }}
               className={`flex items-center gap-1.5 px-3 h-9 rounded-lg border transition
-                ${
-                  selectedRows.size === 0
-                    ? "opacity-40 cursor-not-allowed"
-                    : "border-border-light hover:bg-background"
+                ${selectedRows.size === 0
+                  ? "opacity-40 cursor-not-allowed"
+                  : "border-border-light hover:bg-background"
                 }`}
             >
               <FiPlus size={14} />
@@ -234,10 +253,9 @@ const visibleRows = useMemo(
           <button
             disabled={selectedRows.size === 0}
             className={`h-9 px-4 rounded-lg font-medium transition
-              ${
-                selectedRows.size === 0
-                  ? "opacity-40 cursor-not-allowed bg-primary/30"
-                  : "bg-primary text-white hover:brightness-110"
+              ${selectedRows.size === 0
+                ? "opacity-40 cursor-not-allowed bg-primary/30"
+                : "bg-primary text-white hover:brightness-110"
               }`}
           >
             Save
@@ -245,7 +263,7 @@ const visibleRows = useMemo(
         </div>
 
         <div className="flex items-center gap-3">
-           {/* 🔽 Sort Dropdown */}
+          {/* 🔽 Sort Dropdown */}
           <div ref={sortDropdownRef} className="relative">
             <button
               onClick={() => {
@@ -306,10 +324,9 @@ const visibleRows = useMemo(
                   onClick={() => setIsSortOpen(false)}
                   disabled={!sortBy}
                   className={`w-full h-9 rounded-lg text-sm transition
-                    ${
-                      sortBy
-                        ? "bg-primary text-white hover:brightness-110"
-                        : "bg-primary/30 cursor-not-allowed"
+                    ${sortBy
+                      ? "bg-primary text-white hover:brightness-110"
+                      : "bg-primary/30 cursor-not-allowed"
                     }`}
                 >
                   Apply
@@ -328,10 +345,9 @@ const visibleRows = useMemo(
                 setIsListOpen(false);
               }}
               className={`flex items-center gap-1.5 px-3 h-9 rounded-lg border
-                ${
-                  selectedRows.size === 0
-                    ? "opacity-40 cursor-not-allowed"
-                    : "border-border-light hover:bg-background"
+                ${selectedRows.size === 0
+                  ? "opacity-40 cursor-not-allowed"
+                  : "border-border-light hover:bg-background"
                 }`}
             >
               <FiDownload size={14} />
@@ -380,6 +396,11 @@ const visibleRows = useMemo(
 
       {/* 📊 TABLE — SAME INTERACTIONS */}
       <div className="flex-1 overflow-auto">
+        {loading && (
+          <div className="p-4 text-sm text-text-secondary border-b border-border-light">
+            Loading companies...
+          </div>
+        )}
         <table className="min-w-[1600px] w-full text-sm border-collapse">
           <thead className="sticky top-0 z-20 bg-background-card border-b border-border-light">
             <tr className="text-text-secondary text-left">
@@ -432,7 +453,30 @@ const visibleRows = useMemo(
 
                 <td className="p-3">{row.domain}</td>
                 <td className="p-3">{row.phone}</td>
-                <td className="p-3">{row.linkedin}</td>
+                <td className="p-3">
+                  {isValidLink(row.linkedin) ? (
+                    <a
+                      href={row.linkedin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open LinkedIn"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg
+                 text-blue-600 hover:bg-blue-600/10 hover:text-blue-700 transition"
+                      onClick={(e) => e.stopPropagation()} // ✅ prevents row click side-effects
+                    >
+                      <FiLinkedin size={18} />
+                    </a>
+                  ) : (
+                    <span
+                      title="LinkedIn not available"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg
+                 text-gray-400 cursor-not-allowed opacity-70"
+                    >
+                      <FiLinkedin size={18} />
+                    </span>
+                  )}
+                </td>
+
                 <td className="p-3">{row.location}</td>
                 <td className="p-3">{row.industry}</td>
                 <td className="p-3">{row.employees}</td>
@@ -483,13 +527,24 @@ const visibleRows = useMemo(
       {/* 🔽 FOOTER — SAME */}
       <div className="border-t border-border-light px-4 py-2 flex justify-between bg-background-card text-sm">
         <span className="text-text-secondary">
-          1–{rowsPerPage} of 33.6M
+          {total === 0
+            ? "0 results"
+            : `${(page - 1) * rowsPerPage + 1}–${Math.min(page * rowsPerPage, total)} of ${total}`}
         </span>
         <div className="flex gap-2">
-          <button className="h-9 w-9 rounded-lg border border-border-light hover:bg-background">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="h-9 w-9 rounded-lg border border-border-light hover:bg-background disabled:opacity-40"
+          >
             <FiChevronLeft />
           </button>
-          <button className="h-9 w-9 rounded-lg border border-border-light hover:bg-background">
+
+          <button
+            onClick={() => setPage((p) => (p * rowsPerPage < total ? p + 1 : p))}
+            disabled={page * rowsPerPage >= total}
+            className="h-9 w-9 rounded-lg border border-border-light hover:bg-background disabled:opacity-40"
+          >
             <FiChevronRight />
           </button>
         </div>
@@ -507,7 +562,7 @@ const visibleRows = useMemo(
         />
       )}
 
-    {/* ================= VIEW COMPANY DRAWER ================= */}
+      {/* ================= VIEW COMPANY DRAWER ================= */}
       {viewCompany && (
         <div className="fixed inset-0 z-[200] flex">
           {/* Backdrop */}
@@ -552,71 +607,71 @@ const visibleRows = useMemo(
             ) : (
               <div className="p-5 space-y-6">
 
-              {/* Company Details */}
-              <Section title="Company Details">
-                {viewCompany.description && (
-                  <p className="text-sm text-text-secondary leading-relaxed">
-                    {viewCompany.description}
-                  </p>
-                )}
-              </Section>
+                {/* Company Details */}
+                <Section title="Company Details">
+                  {viewCompany.description && (
+                    <p className="text-sm text-text-secondary leading-relaxed">
+                      {viewCompany.description}
+                    </p>
+                  )}
+                </Section>
 
-              {/* Industries */}
-              {viewCompany.industries && viewCompany.industries.length > 0 && (
-                <Section title="Industries">
-                  <div className="flex flex-wrap gap-2">
-                    {viewCompany.industries.map((ind) => (
-                      <span
-                        key={ind}
-                        className="px-2 py-0.5 rounded-md bg-primary/10
+                {/* Industries */}
+                {viewCompany.industries && viewCompany.industries.length > 0 && (
+                  <Section title="Industries">
+                    <div className="flex flex-wrap gap-2">
+                      {viewCompany.industries.map((ind) => (
+                        <span
+                          key={ind}
+                          className="px-2 py-0.5 rounded-md bg-primary/10
                                   text-primary text-xs"
+                        >
+                          {ind}
+                        </span>
+                      ))}
+                    </div>
+                  </Section>
+                )}
+
+                <Divider />
+
+                {/* Business Information */}
+                <Section title="Business Information">
+                  <Info label="Founded" value={viewCompany.foundedYear ?? "—"} />
+                  <Info label="Employees" value={viewCompany.employees} />
+                  <Info label="Revenue" value={viewCompany.revenue} />
+                  <Info label="Headquarters" value={viewCompany.headquarters ?? viewCompany.location} />
+                </Section>
+
+                <Divider />
+
+                {/* Contact & Web */}
+                <Section title="Contact & Web">
+                  <Info label="Phone" value={viewCompany.phone} />
+
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-text-secondary">Website</span>
+                    {viewCompany.website ? (
+                      <a
+                        href={viewCompany.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
                       >
-                        {ind}
-                      </span>
-                    ))}
+                        {viewCompany.domain}
+                      </a>
+                    ) : (
+                      <span className="font-medium">—</span>
+                    )}
                   </div>
                 </Section>
-              )}
 
-              <Divider />
+                <Divider />
 
-              {/* Business Information */}
-              <Section title="Business Information">
-                <Info label="Founded" value={viewCompany.foundedYear ?? "—"} />
-                <Info label="Employees" value={viewCompany.employees} />
-                <Info label="Revenue" value={viewCompany.revenue} />
-                <Info label="Headquarters" value={viewCompany.headquarters ?? viewCompany.location} />
-              </Section>
-
-              <Divider />
-
-              {/* Contact & Web */}
-              <Section title="Contact & Web">
-                <Info label="Phone" value={viewCompany.phone} />
-
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-text-secondary">Website</span>
-                  {viewCompany.website ? (
-                    <a
-                      href={viewCompany.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      {viewCompany.domain}
-                    </a>
-                  ) : (
-                    <span className="font-medium">—</span>
-                  )}
-                </div>
-              </Section>
-
-              <Divider />
-
-              {/* Links */}
-              <Section title="Links">
-                <div className="flex items-center gap-3">
-                  {viewCompany.linkedin && viewCompany.linkedin.startsWith("http") && (
+                {/* Links */}
+                <Section title="Links">
+                  <div className="flex items-center gap-3">
+                    {viewCompany.linkedin && viewCompany.linkedin.startsWith("http") && (
                       <a
                         href={viewCompany.linkedin}
                         target="_blank"
@@ -629,32 +684,32 @@ const visibleRows = useMemo(
                       </a>
                     )}
 
-                  {viewCompany.website && (
-                    <a
-                      href={viewCompany.website}
-                      target="_blank"
-                      className="h-9 w-9 rounded-lg border border-border-light
+                    {viewCompany.website && (
+                      <a
+                        href={viewCompany.website}
+                        target="_blank"
+                        className="h-9 w-9 rounded-lg border border-border-light
                                 hover:bg-background flex items-center justify-center"
-                      title="Website"
-                    >
-                      🌐
-                    </a>
-                  )}
+                        title="Website"
+                      >
+                        🌐
+                      </a>
+                    )}
 
-                  {viewCompany.twitter && (
-                    <a
-                      href={viewCompany.twitter}
-                      target="_blank"
-                      className="h-9 w-9 rounded-lg border border-border-light
+                    {viewCompany.twitter && (
+                      <a
+                        href={viewCompany.twitter}
+                        target="_blank"
+                        className="h-9 w-9 rounded-lg border border-border-light
                                 hover:bg-background flex items-center justify-center"
-                      title="Twitter / X"
-                    >
-                      𝕏
-                    </a>
-                  )}
-                </div>
-              </Section>
-            </div>
+                        title="Twitter / X"
+                      >
+                        𝕏
+                      </a>
+                    )}
+                  </div>
+                </Section>
+              </div>
             )}
             {/* Footer Actions */}
             <div className="p-5 border-t border-border-light flex gap-2">
@@ -665,7 +720,7 @@ const visibleRows = useMemo(
                 }}
                 disabled={isDrawerLoading}
                 className={`flex-1 h-9 rounded-lg border border-border-light
-                ${isDrawerLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-background"}`} 
+                ${isDrawerLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-background"}`}
               >
                 Add to List
               </button>
