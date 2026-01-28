@@ -686,15 +686,17 @@ useEffect(() => {
         <ContactsModal
           mode="export"
           selectedCount={selectedRows.size}
+          canUseCredits={false} // ✅ later connect with plan/credits
           onClose={() => setIsExportModalOpen(false)}
-          onExport={(format) => {
-            console.log(
-              `Exporting ${selectedRows.size} contacts as`,
-              format
-            );
+          onExport={(format, headerKeys) => {
+            console.log("EXPORT CONTACTS:", {
+              format,
+              headerKeys,
+              selectedIds: Array.from(selectedRows),
+            });
 
-            // later: CSV / Excel logic here
-            setIsExportModalOpen(false);
+            // TODO: call backend export endpoint or generate client-side file
+            // api.post("/contacts/export", { format, headerKeys, ids: Array.from(selectedRows) })
           }}
         />
       )}

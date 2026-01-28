@@ -396,11 +396,7 @@ export default function CompaniesTable({
 
       {/* 📊 TABLE — SAME INTERACTIONS */}
       <div className="flex-1 overflow-auto">
-        {loading && (
-          <div className="p-4 text-sm text-text-secondary border-b border-border-light">
-            Loading companies...
-          </div>
-        )}
+      
         <table className="min-w-[1600px] w-full text-sm border-collapse">
           <thead className="sticky top-0 z-20 bg-background-card border-b border-border-light">
             <tr className="text-text-secondary text-left">
@@ -550,15 +546,18 @@ export default function CompaniesTable({
         </div>
       </div>
 
-      {isModalOpen && (
-        <CompaniesModal mode="list" onClose={() => setIsModalOpen(false)} />
-      )}
-
       {isExportModalOpen && (
         <CompaniesModal
           mode="export"
           selectedCount={selectedRows.size}
+          canUseCredits={false} // ✅ later set true if user has credits/plan
           onClose={() => setIsExportModalOpen(false)}
+          onExport={(format, headerKeys) => {
+            console.log("EXPORT:", { format, headerKeys });
+
+            // TODO: call backend export or build CSV client-side
+            // Example: api.post("/companies/export", { format, headerKeys, ids: [...selectedRows] })
+          }}
         />
       )}
 
