@@ -113,7 +113,12 @@ export default function LoginPage() {
 
           {/* STEP 1: LOGIN FORM */}
           {step === "login" && (
-            <div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleLogin();
+              }}
+            >
               {/* Social login always visible */}
               <div className="space-y-3">
                 <SocialLoginButton
@@ -141,15 +146,15 @@ export default function LoginPage() {
                 <PasswordInput value={password} onChange={setPassword} />
 
                 <button
-                  onClick={handleLogin}
+                  type="submit"
                   disabled={loading}
                   className={`w-full py-2 rounded-lg font-medium transition
-                  flex items-center justify-center gap-2
-                  ${
-                    loading
-                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      : "bg-primary text-white hover:bg-primary-hover"
-                  }`}
+                    flex items-center justify-center gap-2
+                    ${
+                      loading
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-primary text-white hover:bg-primary-hover"
+                    }`}
                 >
                   {loading && <Spinner size={16} />}
                   <span>{loading ? "Logging in..." : "Log In"}</span>
@@ -164,7 +169,7 @@ export default function LoginPage() {
                   </Link>
                 </span>
               </div>
-            </div>
+            </form>
           )}
 
           {/* STEP 2: OTP FORM */}

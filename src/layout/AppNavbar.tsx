@@ -8,6 +8,7 @@ import {
   FiMoon,
   FiSettings,
   FiLogOut,
+  FiDollarSign, // ✅ add this
 } from "react-icons/fi";
 import api from "../services/api";
 
@@ -18,7 +19,38 @@ type User = {
   first_name: string;
   last_name: string;
   avatar_url?: string | null;
+  // ✅ optional if you want to store credits on user
+  credits?: number;
 };
+
+function formatPlainNumber(n: number) {
+  // 1234567 => "1,234,567"
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
+}
+
+function formatCompactCredits(n: number) {
+  // rules:
+  // <= 9999 -> plain
+  // >= 10000 -> 10K+
+  // >= 1,000,000 -> 1M+
+  // >= 1,000,000,000 -> 1B+
+  if (!Number.isFinite(n) || n < 0) return "0";
+
+  if (n <= 9999) return String(Math.floor(n));
+
+  if (n < 1_000_000) {
+    const k = Math.floor(n / 1000); // 10,000 -> 10
+    return `${k}K+`;
+  }
+
+  if (n < 1_000_000_000) {
+    const m = Math.floor(n / 1_000_000); // 1,500,000 -> 1
+    return `${m}M+`;
+  }
+
+  const b = Math.floor(n / 1_000_000_000); // 2,400,000,000 -> 2
+  return `${b}B+`;
+}
 
 export default function AppNavbar({
   collapsed,
@@ -33,6 +65,9 @@ export default function AppNavbar({
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
+  // ✅ credits state (you can load from /auth/me or another endpoint)
+  const [credits, setCredits] = useState<number>(12450);
+
   const userRef = useRef<HTMLDivElement>(null);
   const notifyRef = useRef<HTMLDivElement>(null);
 
@@ -42,6 +77,9 @@ export default function AppNavbar({
       try {
         const res = await api.get("/auth/me");
         setUser(res.data.user);
+
+        // ✅ if backend returns credits with user:
+        // setCredits(res.data.user?.credits ?? 0);
       } catch {
         navigate("/login", { replace: true });
       }
@@ -120,6 +158,43 @@ export default function AppNavbar({
 
       {/* RIGHT */}
       <div className="flex items-center gap-4 relative">
+        {/* ✅ Credits */}
+        <div className="relative group">
+          <button
+            type="button"
+            className="
+              flex items-center gap-2
+              px-3 py-2 rounded-lg
+              transition
+            "
+          >
+            <FiDollarSign className="text-text-secondary" />
+            <span className="text-sm font-semibold tabular-nums">
+              {formatCompactCredits(credits)}
+            </span>
+          </button>
+
+          {/* tooltip */}
+          <div
+            className="
+              pointer-events-none
+              absolute right-0 top-11
+              opacity-0 translate-y-1
+              group-hover:opacity-100 group-hover:translate-y-0
+              transition
+              bg-background-card border border-border-light shadow-lg
+              rounded-lg px-3 py-2
+              whitespace-nowrap
+              z-50
+            "
+          >
+            <p className="text-xs text-text-secondary">Available Credits</p>
+            <p className="text-sm font-semibold tabular-nums text-text-primary">
+              {formatPlainNumber(credits)}
+            </p>
+          </div>
+        </div>
+
         {/* 🌗 Theme */}
         <button
           onClick={toggleTheme}
