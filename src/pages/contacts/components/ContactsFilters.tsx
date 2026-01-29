@@ -408,7 +408,11 @@ function useDebouncedValue<T>(value: T, delay = 250) {
   return debounced;
 }
 /* ---------------- Main ---------------- */
-export default function ContactsFilter() {
+export default function ContactsFilter({
+  onApply,
+}: {
+  onApply: (filters: FiltersState) => void;
+}) {
   const [openSection, setOpenSection] = useState<SectionKey | null>(
     "jobTitles",
   );
@@ -551,8 +555,7 @@ export default function ContactsFilter() {
   );
   /* ---------------- Apply Filters btn---------------- */
   const applyFilters = () => {
-    // ✅ TODO: call API / refresh contacts table with `filters`
-    console.log("Applying contact filters:", filters);
+    onApply(filters); // ✅ send to ContactsPage -> ContactsTable
 
     showToast({
       type: "success",

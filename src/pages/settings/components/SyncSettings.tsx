@@ -7,9 +7,10 @@ import {
   FiRefreshCw,
   FiClock,
 } from "react-icons/fi";
- 
-type SyncKey = "contacts" | "calendar" | "tasks" | "notes" | "files";
- 
+import api from "../../../services/api"; // adjust path if needed
+
+type SyncKey = "companies" | "contacts";
+
 type SyncHistoryRow = {
   id: string;
   date: string; // display string (ex: "April 24, 2024")
@@ -17,27 +18,27 @@ type SyncHistoryRow = {
   status: "success" | "failed";
   details: string;
 };
- 
+
 export default function SyncSettings() {
   // -------------------- state --------------------
   const [open, setOpen] = useState<{ select: boolean; history: boolean }>({
     select: true,
     history: true,
   });
- 
+
   const [selected, setSelected] = useState<Record<SyncKey, boolean>>({
+    companies: true,
     contacts: true,
-    calendar: true,
-    tasks: true,
-    notes: true,
-    files: true,
   });
- 
+
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [job, setJob] = useState<any>(null);
+
   const [syncing, setSyncing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(
     new Date(Date.now() - 2 * 60 * 60 * 1000), // example: 2 hours ago
   );
- 
+
   const history: SyncHistoryRow[] = [
     {
       id: "1",
@@ -76,23 +77,23 @@ export default function SyncSettings() {
     },
     // add more rows if you want
   ];
- 
+
   // -------------------- derived --------------------
   const allChecked = useMemo(
     () => Object.values(selected).every(Boolean),
     [selected],
   );
- 
+
   const someChecked = useMemo(
     () => Object.values(selected).some(Boolean),
     [selected],
   );
- 
+
   const selectedCount = useMemo(
     () => Object.values(selected).filter(Boolean).length,
     [selected],
   );
- 
+
   const lastSyncText = useMemo(() => {
     if (!lastSyncAt) return "Never";
     const diffMs = Date.now() - lastSyncAt.getTime();
@@ -104,7 +105,7 @@ export default function SyncSettings() {
     const diffDays = Math.floor(diffHours / 24);
     return `${diffDays} days ago`;
   }, [lastSyncAt]);
- 
+
   // -------------------- handlers --------------------
   function GridCheckbox({
     label,
@@ -122,11 +123,11 @@ export default function SyncSettings() {
       </label>
     );
   }
- 
+
   const toggleOne = (key: SyncKey) => {
     setSelected((prev) => ({ ...prev, [key]: !prev[key] }));
   };
- 
+
   const toggleAll = () => {
     const next = !allChecked;
     setSelected({
@@ -137,35 +138,55 @@ export default function SyncSettings() {
       files: next,
     });
   };
- 
+
+  // Sync Now
   const handleSyncNow = async () => {
     if (!someChecked || syncing) return;
- 
+
     setSyncing(true);
     try {
-      // ✅ If you later add backend API:
-      // await api.post("/sync/run", { selected });
- 
-      // Fake delay so UI looks real
-      await new Promise((r) => setTimeout(r, 900));
-      setLastSyncAt(new Date());
- 
-      // You can also push a new history row here if you want (optional).
-    } finally {
+      const res = await api.post("/sync/start", {
+        companies: selected.companies,
+        contacts: selected.contacts,
+      });
+
+      setJobId(res.data.jobId);
+      setJob(res.data.job);
+
+      // poll
+      const id = res.data.jobId as string;
+
+      const poll = async () => {
+        const r = await api.get(`/sync/status/${id}`);
+        setJob(r.data.job);
+
+        if (
+          r.data.job.status === "completed" ||
+          r.data.job.status === "failed"
+        ) {
+          setSyncing(false);
+          setLastSyncAt(new Date());
+          return;
+        }
+        setTimeout(poll, 800);
+      };
+
+      poll();
+    } catch (e) {
       setSyncing(false);
     }
   };
- 
+
   // -------------------- pagination (simple UI) --------------------
   const [page, setPage] = useState(1);
   const pageSize = 5;
- 
+
   const totalPages = Math.max(1, Math.ceil(history.length / pageSize));
   const pageRows = useMemo(() => {
     const start = (page - 1) * pageSize;
     return history.slice(start, start + pageSize);
   }, [history, page]);
- 
+
   // -------------------- UI --------------------
   return (
     <div className="max-w-4xl space-y-8 text-gray-900 dark:text-gray-100">
@@ -175,7 +196,7 @@ export default function SyncSettings() {
           Choose what you want to sync and review past sync activity.
         </p>
       </div>
- 
+
       {/* ================= Accordion: Select Data to Sync ================= */}
       <AccordionCard
         title="Select Data to Sync"
@@ -192,14 +213,14 @@ export default function SyncSettings() {
                 Toggle all sync options at once.
               </p>
             </div>
- 
+
             <Checkbox
               checked={allChecked}
               indeterminate={!allChecked && someChecked}
               onChange={toggleAll}
             />
           </div>
- 
+
           {/* Options */}
           <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -209,28 +230,13 @@ export default function SyncSettings() {
                 onChange={() => toggleOne("contacts")}
               />
               <GridCheckbox
-                label="Calendar Events"
-                checked={selected.calendar}
-                onChange={() => toggleOne("calendar")}
-              />
-              <GridCheckbox
-                label="Tasks"
-                checked={selected.tasks}
-                onChange={() => toggleOne("tasks")}
-              />
-              <GridCheckbox
-                label="Notes"
-                checked={selected.notes}
-                onChange={() => toggleOne("notes")}
-              />
-              <GridCheckbox
-                label="Files"
-                checked={selected.files}
-                onChange={() => toggleOne("files")}
+                label="companies"
+                checked={selected.companies}
+                onChange={() => toggleOne("companies")}
               />
             </div>
           </div>
- 
+
           {/* Sync button */}
           <div className="flex flex-col items-center justify-center pt-2">
             <button
@@ -251,7 +257,7 @@ export default function SyncSettings() {
               <FiRefreshCw className={syncing ? "animate-spin" : ""} />
               {syncing ? "Syncing..." : "Sync Now"}
             </button>
- 
+
             <div className="mt-3 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
               <FiClock />
               <span>Last Sync: {lastSyncText}</span>
@@ -264,7 +270,7 @@ export default function SyncSettings() {
           </div>
         </div>
       </AccordionCard>
- 
+
       {/* ================= Accordion: Sync History ================= */}
       <AccordionCard
         title="Sync History"
@@ -285,7 +291,7 @@ export default function SyncSettings() {
                   <th className="px-4 py-3 text-left font-medium">Details</th>
                 </tr>
               </thead>
- 
+
               <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
                 {pageRows.map((row) => (
                   <tr key={row.id} className="align-top">
@@ -302,7 +308,7 @@ export default function SyncSettings() {
               </tbody>
             </table>
           </div>
- 
+
           {/* pagination */}
           <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-950/40 text-sm">
             <button
@@ -317,11 +323,11 @@ export default function SyncSettings() {
             >
               ‹ Previous
             </button>
- 
+
             <span className="text-gray-600 dark:text-gray-400">
               {page} of {totalPages}
             </span>
- 
+
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
@@ -340,9 +346,9 @@ export default function SyncSettings() {
     </div>
   );
 }
- 
+
 /* -------------------- Small UI pieces -------------------- */
- 
+
 function AccordionCard({
   title,
   subtitle,
@@ -371,17 +377,17 @@ function AccordionCard({
             </p>
           ) : null}
         </div>
- 
+
         <span className="mt-1 text-gray-500 dark:text-gray-400">
           {open ? <FiChevronUp /> : <FiChevronDown />}
         </span>
       </button>
- 
+
       {open ? <div className="px-5 pb-5">{children}</div> : null}
     </section>
   );
 }
- 
+
 function Checkbox({
   checked,
   indeterminate = false,
@@ -413,7 +419,7 @@ function Checkbox({
     </button>
   );
 }
- 
+
 function StatusPill({ status }: { status: "success" | "failed" }) {
   const success = status === "success";
   return (
@@ -432,5 +438,3 @@ function StatusPill({ status }: { status: "success" | "failed" }) {
     </span>
   );
 }
- 
- 

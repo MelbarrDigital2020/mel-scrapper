@@ -6,11 +6,15 @@ export const startSync = async (req: Request, res: Response) => {
   try {
     const options = (req.body || {}) as SyncOptions;
 
-    // Basic validation
-    if (!options.companies) {
+    // ✅ validate: at least one selected
+    const hasAny =
+      Boolean(options.companies) || Boolean(options.contacts);
+
+    if (!hasAny) {
       return res.status(400).json({
         success: false,
-        message: "No sync option selected. Example: { companies: true }",
+        message:
+          "No sync option selected. Example: { companies: true, contacts: true }",
       });
     }
 
@@ -21,6 +25,7 @@ export const startSync = async (req: Request, res: Response) => {
       message: "Sync started",
       jobId: job.id,
       status: job.status,
+      job,
     });
   } catch (err: any) {
     return res.status(500).json({

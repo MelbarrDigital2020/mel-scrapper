@@ -2,8 +2,32 @@ import { useState } from "react";
 import ContactsFilter from "./components/ContactsFilters";
 import ContactsTable from "./components/ContactsTable";
 
+type SectionKey =
+  | "jobTitles"
+  | "jobLevel"
+  | "location"
+  | "company"
+  | "employees"
+  | "industry"
+  | "emailStatus"
+  | "intent";
+
+export type FiltersState = Record<SectionKey, string[]>;
+
+const EMPTY_FILTERS: FiltersState = {
+  jobTitles: [],
+  jobLevel: [],
+  location: [],
+  company: [],
+  employees: [],
+  industry: [],
+  emailStatus: [],
+  intent: [],
+};
+
 export default function ContactsPage() {
   const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<FiltersState>(EMPTY_FILTERS);
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -23,12 +47,12 @@ export default function ContactsPage() {
       <div className="flex gap-4 h-[calc(100vh-160px)]">
         {/* Filters */}
         <div className="w-72 shrink-0">
-          <ContactsFilter />
+          <ContactsFilter onApply={setFilters} />
         </div>
 
         {/* Table */}
         <div className="flex-1 overflow-hidden">
-          <ContactsTable search={search} />
+          <ContactsTable search={search} filters={filters} />
         </div>
       </div>
     </div>

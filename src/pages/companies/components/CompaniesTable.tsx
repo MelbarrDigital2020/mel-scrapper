@@ -11,7 +11,7 @@ import {
   FiChevronRight,
   FiFileText,
   FiGrid,
-  FiLinkedin
+  FiLinkedin,
 } from "react-icons/fi";
 
 /* ---------- Company Logo Helper ---------- */
@@ -38,6 +38,24 @@ type Company = {
   foundedYear?: string;
 };
 
+// Frontend header keys (CompaniesModal) -> Backend export header keys (export.service.ts)
+const COMPANY_EXPORT_HEADER_MAP: Record<string, string> = {
+  companyName: "name",
+  domain: "domain",
+  phone: "company_phone",
+  linkedin: "linkedin_url",
+  location: "country",
+  industry: "industry",
+  employees: "employee_range",
+  revenue: "revenue_range",
+
+  // credit-based (only if you want to allow later)
+  website: "website",
+  twitter: "twitter", // only if exists in DB; otherwise remove
+  headquarters: "full_address", // or address_line1
+  foundedYear: "founded_year", // only if exists; otherwise remove
+  description: "description", // only if exists; otherwise remove
+};
 
 export default function CompaniesTable({
   search,
@@ -83,10 +101,12 @@ export default function CompaniesTable({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [exportMode, setExportMode] = useState<"selected" | "filtered">(
+    "selected",
+  );
 
   const isValidLink = (url?: string) =>
     !!url && /^https?:\/\//i.test(url.trim());
-
 
   /* ---------- Search ---------- */
 
@@ -109,7 +129,6 @@ export default function CompaniesTable({
     onLoadingChange?.(loading);
   }, [loading, onLoadingChange]);
 
-
   const toggleSelectAllVisible = () => {
     setSelectedRows((prev) => {
       const next = new Set(prev);
@@ -127,7 +146,10 @@ export default function CompaniesTable({
     const handler = (e: MouseEvent) => {
       const target = e.target as Node;
 
-      if (listDropdownRef.current && !listDropdownRef.current.contains(target)) {
+      if (
+        listDropdownRef.current &&
+        !listDropdownRef.current.contains(target)
+      ) {
         setIsListOpen(false);
       }
       if (
@@ -210,10 +232,75 @@ export default function CompaniesTable({
 
     fetchCompanies();
   }, [search, filters, page, rowsPerPage, sortBy, sortOrder]);
+  // Export Code
+  const handleExport = async (
+    format: "csv" | "excel",
+    headerKeys: string[],
+  ) => {
+    const mappedHeaders = headerKeys
+      .map((k) => COMPANY_EXPORT_HEADER_MAP[k])
+      .filter(Boolean);
+
+    const payload =
+      exportMode === "selected"
+        ? {
+            entity: "companies",
+            mode: "selected",
+            format,
+            headers: mappedHeaders,
+            ids: Array.from(selectedRows),
+          }
+        : {
+            entity: "companies",
+            mode: "filtered",
+            format,
+            headers: mappedHeaders,
+            query: {
+              search: search?.trim() || undefined,
+              filters, // your Companies filters object
+              sortBy:
+                sortBy === "companyName"
+                  ? "name"
+                  : sortBy === "employees"
+                    ? "employee_range"
+                    : sortBy === "revenue"
+                      ? "revenue_range"
+                      : sortBy === "industry"
+                        ? "industry"
+                        : undefined,
+              sortOrder,
+            },
+          };
+
+    try {
+      const res = await api.post("/export", payload, { responseType: "blob" });
+
+      const contentDisposition = res.headers["content-disposition"] as
+        | string
+        | undefined;
+      const filename =
+        contentDisposition?.match(/filename="(.+)"/)?.[1] ||
+        `companies_export.${format === "csv" ? "csv" : "xlsx"}`;
+
+      const blob = new Blob([res.data], {
+        type: res.headers["content-type"] || "application/octet-stream",
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export failed:", err);
+    }
+  };
 
   return (
     <div className="h-full bg-background-card border border-border-light rounded-xl flex flex-col overflow-hidden shadow-sm">
-
       {/* 🔝 TOP BAR — SAME AS CONTACTS */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border-light text-sm bg-background-card">
         <div className="flex items-center gap-3">
@@ -225,9 +312,10 @@ export default function CompaniesTable({
                 setIsExportOpen(false);
               }}
               className={`flex items-center gap-1.5 px-3 h-9 rounded-lg border transition
-                ${selectedRows.size === 0
-                  ? "opacity-40 cursor-not-allowed"
-                  : "border-border-light hover:bg-background"
+                ${
+                  selectedRows.size === 0
+                    ? "opacity-40 cursor-not-allowed"
+                    : "border-border-light hover:bg-background"
                 }`}
             >
               <FiPlus size={14} />
@@ -253,9 +341,10 @@ export default function CompaniesTable({
           <button
             disabled={selectedRows.size === 0}
             className={`h-9 px-4 rounded-lg font-medium transition
-              ${selectedRows.size === 0
-                ? "opacity-40 cursor-not-allowed bg-primary/30"
-                : "bg-primary text-white hover:brightness-110"
+              ${
+                selectedRows.size === 0
+                  ? "opacity-40 cursor-not-allowed bg-primary/30"
+                  : "bg-primary text-white hover:brightness-110"
               }`}
           >
             Save
@@ -289,9 +378,7 @@ export default function CompaniesTable({
                   <label className="text-xs text-text-secondary">Sort by</label>
                   <select
                     value={sortBy}
-                    onChange={(e) =>
-                      setSortBy(e.target.value as any)
-                    }
+                    onChange={(e) => setSortBy(e.target.value as any)}
                     className="w-full h-8 px-2 rounded-lg bg-background
                               border border-border-light text-sm"
                   >
@@ -324,9 +411,10 @@ export default function CompaniesTable({
                   onClick={() => setIsSortOpen(false)}
                   disabled={!sortBy}
                   className={`w-full h-9 rounded-lg text-sm transition
-                    ${sortBy
-                      ? "bg-primary text-white hover:brightness-110"
-                      : "bg-primary/30 cursor-not-allowed"
+                    ${
+                      sortBy
+                        ? "bg-primary text-white hover:brightness-110"
+                        : "bg-primary/30 cursor-not-allowed"
                     }`}
                 >
                   Apply
@@ -345,9 +433,10 @@ export default function CompaniesTable({
                 setIsListOpen(false);
               }}
               className={`flex items-center gap-1.5 px-3 h-9 rounded-lg border
-                ${selectedRows.size === 0
-                  ? "opacity-40 cursor-not-allowed"
-                  : "border-border-light hover:bg-background"
+                ${
+                  selectedRows.size === 0
+                    ? "opacity-40 cursor-not-allowed"
+                    : "border-border-light hover:bg-background"
                 }`}
             >
               <FiDownload size={14} />
@@ -358,18 +447,27 @@ export default function CompaniesTable({
             {isExportOpen && selectedRows.size > 0 && (
               <div className="absolute right-0 mt-2 w-56 bg-background-card border border-border-light rounded-xl shadow-xl z-50">
                 <button
-                  onClick={() => setIsExportModalOpen(true)}
+                  onClick={() => {
+                    setExportMode("selected");
+                    setIsExportModalOpen(true);
+                    setIsExportOpen(false);
+                  }}
                   className="w-full px-4 py-2 flex gap-2 hover:bg-background"
                 >
                   <FiFileText size={14} />
                   Export Selected
                 </button>
+
                 <button
-                  onClick={() => setIsExportModalOpen(true)}
+                  onClick={() => {
+                    setExportMode("filtered");
+                    setIsExportModalOpen(true);
+                    setIsExportOpen(false);
+                  }}
                   className="w-full px-4 py-2 flex gap-2 hover:bg-background"
                 >
                   <FiGrid size={14} />
-                  Export All
+                  Export All Filtered
                 </button>
               </div>
             )}
@@ -396,7 +494,6 @@ export default function CompaniesTable({
 
       {/* 📊 TABLE — SAME INTERACTIONS */}
       <div className="flex-1 overflow-auto">
-      
         <table className="min-w-[1600px] w-full text-sm border-collapse">
           <thead className="sticky top-0 z-20 bg-background-card border-b border-border-light">
             <tr className="text-text-secondary text-left">
@@ -537,7 +634,9 @@ export default function CompaniesTable({
           </button>
 
           <button
-            onClick={() => setPage((p) => (p * rowsPerPage < total ? p + 1 : p))}
+            onClick={() =>
+              setPage((p) => (p * rowsPerPage < total ? p + 1 : p))
+            }
             disabled={page * rowsPerPage >= total}
             className="h-9 w-9 rounded-lg border border-border-light hover:bg-background disabled:opacity-40"
           >
@@ -549,15 +648,10 @@ export default function CompaniesTable({
       {isExportModalOpen && (
         <CompaniesModal
           mode="export"
-          selectedCount={selectedRows.size}
-          canUseCredits={false} // ✅ later set true if user has credits/plan
+          selectedCount={exportMode === "selected" ? selectedRows.size : total}
+          canUseCredits={false}
           onClose={() => setIsExportModalOpen(false)}
-          onExport={(format, headerKeys) => {
-            console.log("EXPORT:", { format, headerKeys });
-
-            // TODO: call backend export or build CSV client-side
-            // Example: api.post("/companies/export", { format, headerKeys, ids: [...selectedRows] })
-          }}
+          onExport={(format, headerKeys) => handleExport(format, headerKeys)}
         />
       )}
 
@@ -571,9 +665,10 @@ export default function CompaniesTable({
           />
 
           {/* Drawer */}
-          <div className="w-[440px] bg-background-card border-l border-border-light
-                          shadow-xl overflow-y-auto">
-
+          <div
+            className="w-[440px] bg-background-card border-l border-border-light
+                          shadow-xl overflow-y-auto"
+          >
             {/* Header */}
             <div className="p-5 border-b border-border-light flex justify-between">
               <div className="flex items-center gap-3">
@@ -605,7 +700,6 @@ export default function CompaniesTable({
               <DrawerSkeleton />
             ) : (
               <div className="p-5 space-y-6">
-
                 {/* Company Details */}
                 <Section title="Company Details">
                   {viewCompany.description && (
@@ -616,30 +710,37 @@ export default function CompaniesTable({
                 </Section>
 
                 {/* Industries */}
-                {viewCompany.industries && viewCompany.industries.length > 0 && (
-                  <Section title="Industries">
-                    <div className="flex flex-wrap gap-2">
-                      {viewCompany.industries.map((ind) => (
-                        <span
-                          key={ind}
-                          className="px-2 py-0.5 rounded-md bg-primary/10
+                {viewCompany.industries &&
+                  viewCompany.industries.length > 0 && (
+                    <Section title="Industries">
+                      <div className="flex flex-wrap gap-2">
+                        {viewCompany.industries.map((ind) => (
+                          <span
+                            key={ind}
+                            className="px-2 py-0.5 rounded-md bg-primary/10
                                   text-primary text-xs"
-                        >
-                          {ind}
-                        </span>
-                      ))}
-                    </div>
-                  </Section>
-                )}
+                          >
+                            {ind}
+                          </span>
+                        ))}
+                      </div>
+                    </Section>
+                  )}
 
                 <Divider />
 
                 {/* Business Information */}
                 <Section title="Business Information">
-                  <Info label="Founded" value={viewCompany.foundedYear ?? "—"} />
+                  <Info
+                    label="Founded"
+                    value={viewCompany.foundedYear ?? "—"}
+                  />
                   <Info label="Employees" value={viewCompany.employees} />
                   <Info label="Revenue" value={viewCompany.revenue} />
-                  <Info label="Headquarters" value={viewCompany.headquarters ?? viewCompany.location} />
+                  <Info
+                    label="Headquarters"
+                    value={viewCompany.headquarters ?? viewCompany.location}
+                  />
                 </Section>
 
                 <Divider />
@@ -670,18 +771,19 @@ export default function CompaniesTable({
                 {/* Links */}
                 <Section title="Links">
                   <div className="flex items-center gap-3">
-                    {viewCompany.linkedin && viewCompany.linkedin.startsWith("http") && (
-                      <a
-                        href={viewCompany.linkedin}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="h-9 w-9 rounded-lg border border-border-light
+                    {viewCompany.linkedin &&
+                      viewCompany.linkedin.startsWith("http") && (
+                        <a
+                          href={viewCompany.linkedin}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="h-9 w-9 rounded-lg border border-border-light
                                   hover:bg-background flex items-center justify-center"
-                        title="LinkedIn"
-                      >
-                        in
-                      </a>
-                    )}
+                          title="LinkedIn"
+                        >
+                          in
+                        </a>
+                      )}
 
                     {viewCompany.website && (
                       <a
@@ -776,10 +878,7 @@ function DrawerSkeleton() {
       {/* Pills */}
       <div className="flex gap-2">
         {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="h-6 w-20 rounded-md bg-border-light"
-          />
+          <div key={i} className="h-6 w-20 rounded-md bg-border-light" />
         ))}
       </div>
     </div>

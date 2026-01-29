@@ -1,5 +1,6 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import ContactsModal from "./ContactsModal";
+import api from "../../../services/api"; // ✅ adjust path if needed
 import { FiCopy, FiMail } from "react-icons/fi";
 import { FaLinkedin } from "react-icons/fa";
 import { Section, Info, Divider } from "../../shared/components/DrawerSections";
@@ -15,169 +16,93 @@ import {
   FiGrid,
 } from "react-icons/fi";
 
+// Frontend header keys (ContactsModal) -> Backend export header keys (export.service.ts)
+const CONTACT_EXPORT_HEADER_MAP: Record<string, string> = {
+  name: "name",
+  jobTitle: "job_title",
+
+  // These are company fields (from JOIN in export service)
+  company: "company_name",
+  companyDomain: "company_domain",
+
+  // Your table shows domain separately; in DB it’s email_domain. Use email_domain as "domain"
+  domain: "email_domain",
+
+  location: "country",
+  industry: "company_industry",
+  employees: "company_employee_range",
+  revenue: "company_revenue_range",
+
+  // credit fields
+  email: "email",
+  phone: "company_phone", // ⚠️ contacts table doesn't have phone column. Company phone exists.
+  linkedin: "linkedin_url",
+};
+
 /* ---------- Company Logo Helper ---------- */
 const getCompanyLogo = (domain: string) =>
   `https://logos-api.apistemic.com/domain:${domain}`;
 
-//
-/* ---------- Dummy Contacts (Backend Friendly) ---------- */
+/* ---------- Types ---------- */
 type Contact = {
-  id: number;
+  id: string; // backend returns uuid/string
   name: string;
-  jobTitle: string;
-  company: string;
-  companyDomain: string;
-  email: string;
-  domain: string;
-  phone: string;
-  linkedin: string;
-  location: string;
-  industry: string;
-  employees: string;
-  revenue: string;
+  jobTitle: string | null;
+  company: string | null;
+  companyDomain: string | null;
+  email: string | null;
+  domain: string | null;
+  phone: string | null;
+  linkedin: string | null;
+  location: string | null;
+  industry: string | null;
+  employees: string | null;
+  revenue: string | null;
 };
 
-const CONTACTS: Contact[] = [
-  {
-    id: 1,
-    name: "John Doe",
-    jobTitle: "Head of Sales",
-    company: "Google",
-    companyDomain: "google.com",
-    email: "john@google.com",
-    domain: "google.com",
-    phone: "Access",
-    linkedin: "View",
-    location: "India",
-    industry: "SaaS",
-    employees: "51–200",
-    revenue: "$5–10M",
-  },
-  {
-    id: 2,
-    name: "Sarah Lee",
-    jobTitle: "Marketing Manager",
-    company: "Stripe",
-    companyDomain: "stripe.com",
-    email: "sarah@stripe.com",
-    domain: "stripe.com",
-    phone: "Access",
-    linkedin: "View",
-    location: "USA",
-    industry: "FinTech",
-    employees: "201–500",
-    revenue: "$10–50M",
-  },
-  {
-    id: 3,
-    name: "John Miller",
-    jobTitle: "Head of Sales",
-    company: "HubSpot",
-    companyDomain: "hubspot.com",
-    email: "john@hubspot.com",
-    domain: "hubspot.com",
-    phone: "Access",
-    linkedin: "View",
-    location: "USA",
-    industry: "SaaS",
-    employees: "501–1000",
-    revenue: "$50–100M",
-  },
-  {
-    id: 4,
-    name: "Emily Watson",
-    jobTitle: "Product Manager",
-    company: "Atlassian",
-    companyDomain: "atlassian.com",
-    email: "emily@atlassian.com",
-    domain: "atlassian.com",
-    phone: "Access",
-    linkedin: "View",
-    location: "Australia",
-    industry: "Software",
-    employees: "1001–5000",
-    revenue: "$500M–$1B",
-  },
-  {
-    id: 5,
-    name: "Michael Brown",
-    jobTitle: "CTO",
-    company: "Shopify",
-    companyDomain: "shopify.com",
-    email: "michael@shopify.com",
-    domain: "shopify.com",
-    phone: "Access",
-    linkedin: "View",
-    location: "Canada",
-    industry: "E-commerce",
-    employees: "5001–10000",
-    revenue: "$1B+",
-  },
-  {
-    id: 6,
-    name: "Priya Sharma",
-    jobTitle: "Business Development Manager",
-    company: "Zoho",
-    companyDomain: "zoho.com",
-    email: "priya@zoho.com",
-    domain: "zoho.com",
-    phone: "Access",
-    linkedin: "View",
-    location: "India",
-    industry: "IT Services",
-    employees: "10001+",
-    revenue: "$1B+",
-  },
-  {
-    id: 7,
-    name: "Daniel Weber",
-    jobTitle: "Operations Director",
-    company: "SAP",
-    companyDomain: "sap.com",
-    email: "daniel@sap.com",
-    domain: "sap.com",
-    phone: "Access",
-    linkedin: "View",
-    location: "Germany",
-    industry: "Enterprise Software",
-    employees: "10001+",
-    revenue: "$10B+",
-  },
-  {
-    id: 8,
-    name: "Emily Watson",
-    jobTitle: "Product Manager",
-    company: "Atlassian",
-    companyDomain: "atlassian.com",
-    email: "emily@atlassian.com",
-    domain: "atlassian.com",
-    phone: "Access",
-    linkedin: "View",
-    location: "Australia",
-    industry: "Software",
-    employees: "1001–5000",
-    revenue: "$500M–$1B",
-  },
-  {
-    id: 9,
-    name: "Michael Brown",
-    jobTitle: "CTO",
-    company: "Shopify",
-    companyDomain: "shopify.com",
-    email: "michael@shopify.com",
-    domain: "shopify.com",
-    phone: "Access",
-    linkedin: "View",
-    location: "Canada",
-    industry: "E-commerce",
-    employees: "5001–10000",
-    revenue: "$1B+",
-  },
-];
+type FiltersState = {
+  jobTitles: string[];
+  jobLevel: string[];
+  location: string[];
+  company: string[];
+  employees: string[];
+  industry: string[];
+  emailStatus: string[];
+  intent: string[];
+};
 
-export default function ContactsTable({ search }: { search: string }) {
+type ApiResponse = {
+  success: boolean;
+  data: Contact[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+export default function ContactsTable({
+  search,
+  filters,
+}: {
+  search: string;
+  filters: FiltersState;
+}) {
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+
+  // ✅ pagination state
+  const [page, setPage] = useState(1);
+
+  // ✅ backend data
+  const [rows, setRows] = useState<Contact[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+
+  // selection uses string ids now
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+
   const [isListOpen, setIsListOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isContactsModalOpen, setIsContactsModalOpen] = useState(false);
@@ -187,14 +112,12 @@ export default function ContactsTable({ search }: { search: string }) {
   /* ---------- Dropdown Refs ---------- */
   const listDropdownRef = useRef<HTMLDivElement | null>(null);
   const exportDropdownRef = useRef<HTMLDivElement | null>(null);
-  /* ---------- Sort Dropdown Ref ---------- */
   const sortDropdownRef = useRef<HTMLDivElement | null>(null);
 
-  /* ---------- SEARCH LOGIC ---------- */
-  const normalizedSearch = search.trim().toLowerCase();
   /* ---------- View Contact Drawer ---------- */
   const [viewContact, setViewContact] = useState<Contact | null>(null);
   const [copied, setCopied] = useState<"email" | "linkedin" | null>(null);
+
   /* ---------- SORT STATE ---------- */
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [sortBy, setSortBy] = useState<
@@ -202,65 +125,80 @@ export default function ContactsTable({ search }: { search: string }) {
   >("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
-  const filteredRows = useMemo(() => {
-    if (!normalizedSearch) return CONTACTS;
-
-    return CONTACTS.filter(
-      (row) =>
-        row.name.toLowerCase().includes(normalizedSearch) ||
-        row.email.toLowerCase().includes(normalizedSearch),
-    );
-  }, [normalizedSearch]);
-
-  const sortedRows = useMemo(() => {
-    const rows = [...filteredRows];
-
-    if (!sortBy) return rows;
-
-    rows.sort((a, b) => {
-      const aVal = a[sortBy];
-      const bVal = b[sortBy];
-
-      if (typeof aVal === "string" && typeof bVal === "string") {
-        return sortOrder === "asc"
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal);
-      }
-
-      return 0;
-    });
-
-    return rows;
-  }, [filteredRows, sortBy, sortOrder]);
-
-  const visibleRows = useMemo(
-    () => sortedRows.slice(0, rowsPerPage),
-    [sortedRows, rowsPerPage],
+  const [exportMode, setExportMode] = useState<"selected" | "filtered">(
+    "selected",
   );
 
+  const normalizedSearch = search.trim();
+
+  // ✅ reset page + selection when search/filters change
+  useEffect(() => {
+    setPage(1);
+    setSelectedRows(new Set());
+  }, [search, JSON.stringify(filters)]);
+
+  // ✅ fetch contacts from backend
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchContacts = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get<ApiResponse>("/contacts", {
+          params: {
+            search: normalizedSearch || undefined,
+            page,
+            limit: rowsPerPage,
+            sortBy: sortBy || undefined,
+            sortOrder,
+            ...filters, // ✅ arrays will be sent as query params
+          },
+          paramsSerializer: {
+            // ✅ ensures arrays become: jobTitles[]=a&jobTitles[]=b
+            indexes: null,
+          } as any,
+        });
+
+        if (!mounted) return;
+
+        const payload = res.data;
+        setRows(payload.data || []);
+        setTotal(payload.pagination?.total ?? 0);
+        setTotalPages(payload.pagination?.totalPages ?? 1);
+      } catch (err) {
+        console.error("Fetch contacts failed:", err);
+        if (!mounted) return;
+        setRows([]);
+        setTotal(0);
+        setTotalPages(1);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    fetchContacts();
+
+    return () => {
+      mounted = false;
+    };
+  }, [normalizedSearch, filters, page, rowsPerPage, sortBy, sortOrder]);
+
   const allVisibleSelected =
-    visibleRows.length > 0 &&
-    visibleRows.every((row) => selectedRows.has(row.id));
+    rows.length > 0 && rows.every((row) => selectedRows.has(row.id));
 
   // ---------- Copy to Clipboard Handler ----------
   const copyToClipboard = async (text: string, type: "email" | "linkedin") => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(type);
-
       setTimeout(() => setCopied(null), 1500);
     } catch (err) {
       console.error("Copy failed", err);
     }
   };
 
-  /* ---------- Reset selection on search ---------- */
-  useEffect(() => {
-    setSelectedRows(new Set());
-  }, [search]);
-
   /* ---------- Handlers ---------- */
-  const toggleRow = (id: number) => {
+  const toggleRow = (id: string) => {
     setSelectedRows((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
@@ -272,9 +210,9 @@ export default function ContactsTable({ search }: { search: string }) {
     setSelectedRows((prev) => {
       const next = new Set(prev);
       if (allVisibleSelected) {
-        visibleRows.forEach((row) => next.delete(row.id));
+        rows.forEach((row) => next.delete(row.id));
       } else {
-        visibleRows.forEach((row) => next.add(row.id));
+        rows.forEach((row) => next.add(row.id));
       }
       return next;
     });
@@ -298,6 +236,7 @@ export default function ContactsTable({ search }: { search: string }) {
       ) {
         setIsExportOpen(false);
       }
+
       if (
         sortDropdownRef.current &&
         !sortDropdownRef.current.contains(target)
@@ -307,11 +246,74 @@ export default function ContactsTable({ search }: { search: string }) {
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // ✅ pagination display (1–10 of total)
+  const from = total === 0 ? 0 : (page - 1) * rowsPerPage + 1;
+  const to = Math.min(page * rowsPerPage, total);
+
+  // Handle Export Code
+  const handleExport = async (
+    format: "csv" | "excel",
+    headerKeys: string[],
+  ) => {
+    // map FE keys -> BE keys
+    const mappedHeaders = headerKeys
+      .map((k) => CONTACT_EXPORT_HEADER_MAP[k])
+      .filter(Boolean);
+
+    // build payload based on exportMode
+    const payload =
+      exportMode === "selected"
+        ? {
+            entity: "contacts",
+            mode: "selected",
+            format,
+            headers: mappedHeaders,
+            ids: Array.from(selectedRows), // ✅ UUIDs
+          }
+        : {
+            entity: "contacts",
+            mode: "filtered",
+            format,
+            headers: mappedHeaders,
+            query: {
+              search: normalizedSearch || undefined,
+              filters, // ✅ your filters object
+              sortBy: sortBy || undefined,
+              sortOrder,
+            },
+          };
+
+    try {
+      // IMPORTANT: responseType blob
+      const res = await api.post("/export", payload, { responseType: "blob" });
+
+      // filename from header if backend sets it; else fallback
+      const contentDisposition = res.headers["content-disposition"] as
+        | string
+        | undefined;
+      const filename =
+        contentDisposition?.match(/filename="(.+)"/)?.[1] ||
+        `contacts_export.${format === "csv" ? "csv" : "xlsx"}`;
+
+      const blob = new Blob([res.data], {
+        type: res.headers["content-type"] || "application/octet-stream",
+      });
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export failed:", err);
+    }
+  };
 
   return (
     <div className="h-full bg-background-card border border-border-light rounded-xl flex flex-col overflow-hidden shadow-sm">
@@ -381,27 +383,20 @@ export default function ContactsTable({ search }: { search: string }) {
                 setIsExportOpen(false);
                 setIsListOpen(false);
               }}
-              className="flex items-center gap-1.5 px-3 h-9 rounded-lg border
-                        border-border-light hover:bg-background transition"
+              className="flex items-center gap-1.5 px-3 h-9 rounded-lg border border-border-light hover:bg-background transition"
             >
               ↑↓ Sort
               <FiChevronDown size={14} />
             </button>
 
             {isSortOpen && (
-              <div
-                className="absolute right-0 mt-2 w-56 bg-background-card
-                              border border-border-light rounded-xl shadow-xl
-                              z-50 p-3 space-y-3"
-              >
-                {/* Sort By */}
+              <div className="absolute right-0 mt-2 w-56 bg-background-card border border-border-light rounded-xl shadow-xl z-50 p-3 space-y-3">
                 <div className="space-y-1">
                   <label className="text-xs text-text-secondary">Sort by</label>
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
-                    className="w-full h-8 px-2 rounded-lg bg-background
-                              border border-border-light text-sm"
+                    className="w-full h-8 px-2 rounded-lg bg-background border border-border-light text-sm"
                   >
                     <option value="">Select...</option>
                     <option value="name">Name</option>
@@ -411,7 +406,6 @@ export default function ContactsTable({ search }: { search: string }) {
                   </select>
                 </div>
 
-                {/* Order */}
                 <div className="space-y-1">
                   <label className="text-xs text-text-secondary">Order</label>
                   <select
@@ -419,16 +413,14 @@ export default function ContactsTable({ search }: { search: string }) {
                     onChange={(e) =>
                       setSortOrder(e.target.value as "asc" | "desc")
                     }
-                    className="w-full h-8 px-2 rounded-lg bg-background
-                              border border-border-light text-sm"
+                    className="w-full h-8 px-2 rounded-lg bg-background border border-border-light text-sm"
                   >
                     <option value="asc">Ascending</option>
                     <option value="desc">Descending</option>
                   </select>
                 </div>
 
-                {/* Apply */}
-                <button
+                {/* <button
                   onClick={() => setIsSortOpen(false)}
                   disabled={!sortBy}
                   className={`w-full h-9 rounded-lg text-sm transition
@@ -439,7 +431,7 @@ export default function ContactsTable({ search }: { search: string }) {
                     }`}
                 >
                   Apply
-                </button>
+                </button> */}
               </div>
             )}
           </div>
@@ -447,7 +439,6 @@ export default function ContactsTable({ search }: { search: string }) {
           {/* 🔽 Export Dropdown */}
           <div ref={exportDropdownRef} className="relative">
             <button
-              disabled={selectedRows.size === 0}
               onClick={() => {
                 setIsExportOpen((v) => !v);
                 setIsListOpen(false);
@@ -467,7 +458,9 @@ export default function ContactsTable({ search }: { search: string }) {
             {isExportOpen && selectedRows.size > 0 && (
               <div className="absolute right-0 mt-2 w-56 bg-background-card border border-border-light rounded-xl shadow-xl z-50 overflow-hidden">
                 <button
+                  disabled={selectedRows.size === 0}
                   onClick={() => {
+                    setExportMode("selected");
                     setIsExportModalOpen(true);
                     setIsExportOpen(false);
                   }}
@@ -479,6 +472,7 @@ export default function ContactsTable({ search }: { search: string }) {
 
                 <button
                   onClick={() => {
+                    setExportMode("filtered");
                     setIsExportModalOpen(true);
                     setIsExportOpen(false);
                   }}
@@ -497,6 +491,7 @@ export default function ContactsTable({ search }: { search: string }) {
             value={rowsPerPage}
             onChange={(e) => {
               setRowsPerPage(Number(e.target.value));
+              setPage(1);
               setSelectedRows(new Set());
               setIsListOpen(false);
               setIsExportOpen(false);
@@ -547,106 +542,137 @@ export default function ContactsTable({ search }: { search: string }) {
           </thead>
 
           <tbody>
-            {visibleRows.map((row) => (
-              <tr
-                key={row.id}
-                className="group border-b border-border-light
-             hover:bg-background
-             hover:-translate-y-[1px]
-             hover:shadow-sm
-             transition-all duration-150 cursor-pointer"
-              >
-                <td className="sticky left-0 z-10 bg-background-card p-3 w-12 border-r border-border-light">
-                  <input
-                    type="checkbox"
-                    checked={selectedRows.has(row.id)}
-                    onChange={() => toggleRow(row.id)}
-                  />
-                </td>
-
+            {loading ? (
+              <tr>
                 <td
-                  className="sticky left-12 z-10  p-3 w-[220px]
-               font-medium border-r border-border-light 
-               group-hover:bg-background transition"
+                  colSpan={13}
+                  className="p-6 text-center text-text-secondary"
                 >
-                  <HighlightText text={row.name} query={normalizedSearch} />
-                </td>
-
-                <td className="p-3">{row.jobTitle}</td>
-                <td className="p-3">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={getCompanyLogo(row.companyDomain)}
-                      alt={`${row.company} logo`}
-                      className="h-6 w-6 rounded-md border border-border-light bg-white object-contain"
-                    />
-                    <span className="font-medium">{row.company}</span>
-                  </div>
-                </td>
-                <td className="p-3">
-                  <HighlightText text={row.email} query={normalizedSearch} />
-                </td>
-                <td className="p-3">{row.domain}</td>
-                <td className="p-3">{row.phone}</td>
-                <td className="p-3">{row.linkedin}</td>
-                <td className="p-3">{row.location}</td>
-                <td className="p-3">{row.industry}</td>
-                <td className="p-3">{row.employees}</td>
-                <td className="p-3">{row.revenue}</td>
-
-                <td className="p-3">
-                  <div className="flex items-center gap-2 opacity-80 group-hover:opacity-100 transition">
-                    <button
-                      onClick={() => {
-                        setIsContactsModalOpen(true);
-                      }}
-                      title="Add to List"
-                      className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-primary/10 hover:text-primary transition"
-                    >
-                      <FiPlus size={16} />
-                    </button>
-
-                    <button
-                      title="View Contact"
-                      onClick={() => {
-                        setIsContactDrawerLoading(true);
-                        setViewContact(row);
-
-                        // simulate API delay
-                        setTimeout(() => {
-                          setIsContactDrawerLoading(false);
-                        }, 900);
-                      }}
-                      className="h-7 w-7 rounded-lg flex items-center justify-center
-                              hover:bg-background hover:shadow-sm transition"
-                    >
-                      <FiEye size={16} />
-                    </button>
-                  </div>
+                  Loading contacts...
                 </td>
               </tr>
-            ))}
+            ) : rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={13}
+                  className="p-6 text-center text-text-secondary"
+                >
+                  No matching contacts found
+                </td>
+              </tr>
+            ) : (
+              rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className="group border-b border-border-light hover:bg-background hover:-translate-y-[1px] hover:shadow-sm transition-all duration-150 cursor-pointer"
+                >
+                  <td className="sticky left-0 z-10 bg-background-card p-3 w-12 border-r border-border-light">
+                    <input
+                      type="checkbox"
+                      checked={selectedRows.has(row.id)}
+                      onChange={() => toggleRow(row.id)}
+                    />
+                  </td>
+
+                  <td className="sticky left-12 z-10 bg-background-card p-3 w-[220px] font-medium border-r border-border-light group-hover:bg-background transition">
+                    <HighlightText
+                      text={row.name || "Unknown"}
+                      query={normalizedSearch.toLowerCase()}
+                    />
+                  </td>
+
+                  <td className="p-3">{row.jobTitle ?? "-"}</td>
+
+                  <td className="p-3">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={getCompanyLogo(row.companyDomain || "")}
+                        alt={`${row.company || "Company"} logo`}
+                        className="h-6 w-6 rounded-md border border-border-light bg-white object-contain"
+                      />
+                      <span className="font-medium">{row.company ?? "-"}</span>
+                    </div>
+                  </td>
+
+                  <td className="p-3">
+                    <HighlightText
+                      text={row.email ?? "-"}
+                      query={normalizedSearch.toLowerCase()}
+                    />
+                  </td>
+
+                  <td className="p-3">{row.domain ?? "-"}</td>
+                  <td className="p-3">{row.phone ?? "-"}</td>
+                  <td className="p-3">{row.linkedin ?? "-"}</td>
+                  <td className="p-3">{row.location ?? "-"}</td>
+                  <td className="p-3">{row.industry ?? "-"}</td>
+                  <td className="p-3">{row.employees ?? "-"}</td>
+                  <td className="p-3">{row.revenue ?? "-"}</td>
+
+                  <td className="p-3">
+                    <div className="flex items-center gap-2 opacity-80 group-hover:opacity-100 transition">
+                      <button
+                        onClick={() => setIsContactsModalOpen(true)}
+                        title="Add to List"
+                        className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-primary/10 hover:text-primary transition"
+                      >
+                        <FiPlus size={16} />
+                      </button>
+
+                      <button
+                        title="View Contact"
+                        onClick={() => {
+                          setIsContactDrawerLoading(true);
+                          setViewContact(row);
+                          setTimeout(
+                            () => setIsContactDrawerLoading(false),
+                            500,
+                          );
+                        }}
+                        className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-background hover:shadow-sm transition"
+                      >
+                        <FiEye size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
-        {visibleRows.length === 0 && (
-          <div className="p-6 text-center text-text-secondary">
-            No matching contacts found
-          </div>
-        )}
       </div>
 
       {/* 🔽 Pagination */}
       <div className="shrink-0 border-t border-border-light px-4 py-2 flex items-center justify-between bg-background-card text-sm">
-        <span className="text-text-secondary">1–{rowsPerPage} of 33.6M</span>
+        <span className="text-text-secondary">
+          {from}–{to} of {total.toLocaleString()}
+        </span>
+
         <div className="flex items-center gap-2">
-          <button className="h-9 w-9 rounded-lg border border-border-light hover:bg-background transition">
+          <button
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className={`h-9 w-9 rounded-lg border border-border-light transition
+              ${page <= 1 ? "opacity-40 cursor-not-allowed" : "hover:bg-background"}`}
+          >
             <FiChevronLeft />
           </button>
-          <button className="h-9 w-9 rounded-lg border border-border-light hover:bg-background transition">
+
+          <span className="text-xs text-text-secondary">
+            Page {page} / {totalPages}
+          </span>
+
+          <button
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            className={`h-9 w-9 rounded-lg border border-border-light transition
+              ${page >= totalPages ? "opacity-40 cursor-not-allowed" : "hover:bg-background"}`}
+          >
             <FiChevronRight />
           </button>
         </div>
       </div>
+
       {/* ================= LIST MODAL ================= */}
       {isContactsModalOpen && (
         <ContactsModal
@@ -659,68 +685,47 @@ export default function ContactsTable({ search }: { search: string }) {
       {isExportModalOpen && (
         <ContactsModal
           mode="export"
-          selectedCount={selectedRows.size}
-          canUseCredits={false} // ✅ later connect with plan/credits
+          selectedCount={exportMode === "selected" ? selectedRows.size : total}
+          canUseCredits={false}
           onClose={() => setIsExportModalOpen(false)}
-          onExport={(format, headerKeys) => {
-            console.log("EXPORT CONTACTS:", {
-              format,
-              headerKeys,
-              selectedIds: Array.from(selectedRows),
-            });
-
-            // TODO: call backend export endpoint or generate client-side file
-            // api.post("/contacts/export", { format, headerKeys, ids: Array.from(selectedRows) })
-          }}
+          onExport={(format, headerKeys) => handleExport(format, headerKeys)}
         />
       )}
+
       {/* ================= VIEW CONTACT DRAWER ================= */}
       {viewContact && (
         <div className="fixed inset-0 z-[200] flex">
-          {/* Backdrop */}
           <div
             className="flex-1 bg-black/30"
             onClick={() => setViewContact(null)}
           />
 
-          {/* Drawer */}
           <div className="w-[440px] bg-background-card border-l border-border-light shadow-xl overflow-y-auto">
-            {/* Header */}
             <div className="p-5 border-b border-border-light flex items-start justify-between">
               <div className="flex flex-col gap-2">
                 <h2 className="text-lg font-semibold leading-tight">
                   {viewContact.name}
                 </h2>
-
                 <p className="text-sm text-text-secondary">
-                  {viewContact.jobTitle}
+                  {viewContact.jobTitle ?? "-"}
                 </p>
 
-                {/* CTA Buttons */}
                 <div className="flex items-center gap-2 mt-1">
                   <a
-                    href={`mailto:${viewContact.email}`}
-                    className="px-3 h-8 rounded-lg text-xs
-                                bg-primary/10 text-primary
-                                hover:bg-primary/20 transition
-                                flex items-center gap-1"
+                    href={
+                      viewContact.email ? `mailto:${viewContact.email}` : "#"
+                    }
+                    className="px-3 h-8 rounded-lg text-xs bg-primary/10 text-primary hover:bg-primary/20 transition flex items-center gap-1"
                   >
                     <FiMail size={14} />
                     Email
                   </a>
 
                   <a
-                    href={
-                      viewContact.linkedin !== "View"
-                        ? viewContact.linkedin
-                        : "#"
-                    }
+                    href={viewContact.linkedin ? viewContact.linkedin : "#"}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3 h-8 rounded-lg text-xs
-                                bg-background border border-border-light
-                                hover:bg-background/80 transition
-                                flex items-center gap-1"
+                    className="px-3 h-8 rounded-lg text-xs bg-background border border-border-light hover:bg-background/80 transition flex items-center gap-1"
                   >
                     <FaLinkedin size={14} />
                     LinkedIn
@@ -728,7 +733,6 @@ export default function ContactsTable({ search }: { search: string }) {
                 </div>
               </div>
 
-              {/* ✅ Close button */}
               <button
                 onClick={() => setViewContact(null)}
                 className="h-8 w-8 rounded-lg hover:bg-background flex items-center justify-center"
@@ -737,104 +741,96 @@ export default function ContactsTable({ search }: { search: string }) {
               </button>
             </div>
 
-            {/* Company Card */}
             <div className="p-5 border-b border-border-light">
               <div className="flex items-center gap-3">
                 <img
-                  src={getCompanyLogo(viewContact.companyDomain)}
+                  src={getCompanyLogo(viewContact.companyDomain || "")}
                   className="h-10 w-10 rounded-md border border-border-light bg-white"
                 />
                 <div>
-                  <p className="font-medium">{viewContact.company}</p>
+                  <p className="font-medium">{viewContact.company ?? "-"}</p>
                   <p className="text-xs text-text-secondary">
-                    {viewContact.domain}
+                    {viewContact.domain ?? "-"}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Contact Info */}
             {isContactDrawerLoading ? (
               <ContactDrawerSkeleton />
             ) : (
               <div className="p-5 space-y-4">
                 <Section title="Contact Information">
-                  {/* Email */}
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-text-secondary text-sm">Email</p>
-                      <p className="font-medium">{viewContact.email}</p>
+                      <p className="font-medium">{viewContact.email ?? "-"}</p>
                     </div>
 
                     <button
                       onClick={() =>
-                        copyToClipboard(viewContact.email, "email")
+                        copyToClipboard(viewContact.email ?? "", "email")
                       }
-                      className="h-8 w-8 rounded-lg border border-border-light
-                              hover:bg-background flex items-center justify-center transition"
+                      className="h-8 w-8 rounded-lg border border-border-light hover:bg-background flex items-center justify-center transition"
                       title="Copy email"
+                      disabled={!viewContact.email}
                     >
                       {copied === "email" ? "✓" : <FiCopy size={14} />}
                     </button>
                   </div>
 
-                  {/* Phone */}
-                  <Info label="Phone" value={viewContact.phone} />
+                  <Info label="Phone" value={viewContact.phone ?? "-"} />
 
-                  {/* LinkedIn */}
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-text-secondary text-sm">LinkedIn</p>
                       <a
-                        href={
-                          viewContact.linkedin !== "View"
-                            ? viewContact.linkedin
-                            : "#"
-                        }
+                        href={viewContact.linkedin ?? "#"}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-medium text-primary hover:underline"
                       >
-                        {viewContact.linkedin}
+                        {viewContact.linkedin ?? "-"}
                       </a>
                     </div>
 
                     <button
                       onClick={() =>
-                        copyToClipboard(viewContact.linkedin, "linkedin")
+                        copyToClipboard(viewContact.linkedin ?? "", "linkedin")
                       }
-                      className="h-8 w-8 rounded-lg border border-border-light
-                              hover:bg-background flex items-center justify-center transition"
+                      className="h-8 w-8 rounded-lg border border-border-light hover:bg-background flex items-center justify-center transition"
                       title="Copy LinkedIn URL"
+                      disabled={!viewContact.linkedin}
                     >
                       {copied === "linkedin" ? "✓" : <FiCopy size={14} />}
                     </button>
                   </div>
 
-                  <Info label="Location" value={viewContact.location} />
+                  <Info label="Location" value={viewContact.location ?? "-"} />
                 </Section>
 
                 <Divider />
 
                 <Section title="Business Information">
-                  <Info label="Industry" value={viewContact.industry} />
-                  <Info label="Employees" value={viewContact.employees} />
-                  <Info label="Revenue" value={viewContact.revenue} />
+                  <Info label="Industry" value={viewContact.industry ?? "-"} />
+                  <Info
+                    label="Employees"
+                    value={viewContact.employees ?? "-"}
+                  />
+                  <Info label="Revenue" value={viewContact.revenue ?? "-"} />
                 </Section>
               </div>
             )}
-            {/* Footer Actions */}
+
             <div className="p-5 border-t border-border-light flex gap-2">
               <button
                 onClick={() => {
                   setIsContactsModalOpen(true);
-
-                  // optional: close drawer when modal opens
                   setViewContact(null);
                 }}
                 disabled={isContactDrawerLoading}
                 className={`flex-1 h-9 rounded-lg border border-border-light
-    ${isContactDrawerLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-background"}`}
+                  ${isContactDrawerLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-background"}`}
               >
                 Add to List
               </button>
@@ -842,7 +838,7 @@ export default function ContactsTable({ search }: { search: string }) {
               <button
                 disabled={isContactDrawerLoading}
                 className={`flex-1 h-9 rounded-lg border border-border-light bg-primary text-white
-    ${isContactDrawerLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-background"}`}
+                  ${isContactDrawerLoading ? "opacity-50 cursor-not-allowed" : "hover:brightness-110"}`}
               >
                 Export Prospect
               </button>
@@ -853,12 +849,14 @@ export default function ContactsTable({ search }: { search: string }) {
     </div>
   );
 }
+
 /* ---------- Highlight Helper ---------- */
 function HighlightText({ text, query }: { text: string; query: string }) {
   if (!query) return <>{text}</>;
 
-  const regex = new RegExp(`(${query})`, "ig");
-  const parts = text.split(regex);
+  const safe = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`(${safe})`, "ig");
+  const parts = String(text).split(regex);
 
   return (
     <>
@@ -878,13 +876,11 @@ function HighlightText({ text, query }: { text: string; query: string }) {
 function ContactDrawerSkeleton() {
   return (
     <div className="p-5 space-y-6 animate-pulse">
-      {/* Header */}
       <div className="space-y-2">
         <div className="h-4 w-1/2 bg-border-light rounded" />
         <div className="h-3 w-1/3 bg-border-light rounded" />
       </div>
 
-      {/* Company */}
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-md bg-border-light" />
         <div className="space-y-2 flex-1">
@@ -895,7 +891,6 @@ function ContactDrawerSkeleton() {
 
       <Divider />
 
-      {/* Info rows */}
       {[1, 2, 3, 4].map((i) => (
         <div key={i} className="flex justify-between">
           <div className="h-3 w-1/3 bg-border-light rounded" />
@@ -905,7 +900,6 @@ function ContactDrawerSkeleton() {
 
       <Divider />
 
-      {/* Business info */}
       {[1, 2, 3].map((i) => (
         <div key={i} className="flex justify-between">
           <div className="h-3 w-1/3 bg-border-light rounded" />

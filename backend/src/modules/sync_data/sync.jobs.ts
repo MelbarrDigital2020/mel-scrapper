@@ -1,12 +1,41 @@
 import { randomUUID } from "crypto";
-import type { SyncJob, SyncOptions } from "./sync.types";
+import type { SyncJob, SyncOptions, SyncTask } from "./sync.types";
 import { runSyncTask } from "./sync.service";
 
 const jobs = new Map<string, SyncJob>();
 
-// If you want: limit concurrency to 1 (safe for file writes)
 let isWorkerBusy = false;
 const queue: string[] = [];
+
+function makeTasks(options: SyncOptions): SyncTask[] {
+  const tasks: SyncTask[] = [];
+
+  if (options.companies) {
+    tasks.push({
+      key: "companies",
+      label: "Companies",
+      status: "queued",
+      progress: 0,
+    });
+  }
+
+  if (options.contacts) {
+    tasks.push({
+      key: "contacts",
+      label: "Job Titles",
+      status: "queued",
+      progress: 0,
+    });
+  }
+
+  return tasks;
+}
+
+function updateTask(job: SyncJob, key: "companies" | "contacts", patch: Partial<SyncTask>) {
+  const idx = job.tasks.findIndex((t) => t.key === key);
+  if (idx === -1) return;
+  job.tasks[idx] = { ...job.tasks[idx], ...patch };
+}
 
 function startWorkerLoop() {
   if (isWorkerBusy) return;
@@ -24,12 +53,43 @@ function startWorkerLoop() {
 
     job.status = "running";
     job.startedAt = new Date().toISOString();
-    job.progress = 5;
+    job.progress = 1;
 
     try {
-      const result = await runSyncTask(job.options, (p) => {
-        const j = jobs.get(jobId);
-        if (j) j.progress = Math.max(0, Math.min(100, p));
+      const result = await runSyncTask(job.options, {
+        onOverallProgress: (p) => {
+          const j = jobs.get(jobId);
+          if (j) j.progress = Math.max(0, Math.min(100, p));
+        },
+
+        onTaskStart: (key) => {
+          const j = jobs.get(jobId);
+          if (!j) return;
+          updateTask(j, key, {
+            status: "running",
+            progress: 1,
+            startedAt: new Date().toISOString(),
+          });
+        },
+
+        onTaskProgress: (key, p) => {
+          const j = jobs.get(jobId);
+          if (!j) return;
+          updateTask(j, key, {
+            progress: Math.max(0, Math.min(100, p)),
+          });
+        },
+
+        onTaskDone: (key, taskResult) => {
+          const j = jobs.get(jobId);
+          if (!j) return;
+          updateTask(j, key, {
+            status: "completed",
+            progress: 100,
+            finishedAt: new Date().toISOString(),
+            result: taskResult,
+          });
+        },
       });
 
       const j = jobs.get(jobId);
@@ -42,9 +102,21 @@ function startWorkerLoop() {
     } catch (err: any) {
       const j = jobs.get(jobId);
       if (j) {
+        const msg = err?.message || "Unknown error";
+
+        // ✅ mark currently running task as failed
+        const runningTask = j.tasks.find((t) => t.status === "running");
+        if (runningTask) {
+          updateTask(j, runningTask.key as any, {
+            status: "failed",
+            error: msg,
+            finishedAt: new Date().toISOString(),
+          });
+        }
+
         j.status = "failed";
         j.finishedAt = new Date().toISOString();
-        j.error = err?.message || "Unknown error";
+        j.error = msg;
         j.progress = 100;
       }
     }
@@ -63,15 +135,17 @@ export function createSyncJob(options: SyncOptions): SyncJob {
     status: "queued",
     progress: 0,
     createdAt: new Date().toISOString(),
+    startedAt: undefined,
+    finishedAt: undefined,
+    error: undefined,
     options,
+    tasks: makeTasks(options), // ✅ NEW
   };
 
   jobs.set(id, job);
   queue.push(id);
 
-  // Run async in background
   setImmediate(() => startWorkerLoop());
-
   return job;
 }
 
