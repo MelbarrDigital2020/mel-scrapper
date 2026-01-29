@@ -138,28 +138,30 @@ END $$;
 CREATE TABLE IF NOT EXISTS public.export_jobs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
+  entity text NOT NULL,              -- 'contacts' | 'companies'
+  mode text NOT NULL,                -- 'selected' | 'filtered'
+  format text NOT NULL,              -- 'csv' | 'excel'
+  status text NOT NULL DEFAULT 'queued',  -- queued | processing | completed | failed
 
-  entity text NOT NULL CHECK (entity IN ('contacts', 'companies')),
-  mode text NOT NULL CHECK (mode IN ('selected', 'filtered')),
-  format text NOT NULL CHECK (format IN ('csv', 'excel')),
+  headers jsonb NOT NULL,
+  ids jsonb,
+  query jsonb,
 
-  status export_job_status NOT NULL DEFAULT 'queued',
+  row_count int,
+  file_name text,
+  file_path text,                    -- where you saved it in project directory
+  file_size_bytes bigint,
 
-  headers jsonb NOT NULL DEFAULT '[]'::jsonb,
-  ids jsonb NULL,         -- selected IDs (uuid list) stored as JSON
-  query jsonb NULL,       -- filtered export query (search, filters, sort)
-
-  row_count int NOT NULL DEFAULT 0,
-  file_name text NULL,
-  file_size_bytes int NULL,
-
-  error_message text NULL,
+  error_message text,
 
   created_at timestamptz NOT NULL DEFAULT now(),
-  started_at timestamptz NULL,
-  finished_at timestamptz NULL,
-  delivered_at timestamptz NULL
+  started_at timestamptz,
+  finished_at timestamptz,
+  delivered_at timestamptz           -- when user actually downloads
 );
+
+CREATE INDEX IF NOT EXISTS idx_export_jobs_user_created
+  ON public.export_jobs (user_id, created_at DESC);
 
 -- Helpful indexes
 CREATE INDEX IF NOT EXISTS idx_export_jobs_user_id_created_at
@@ -167,3 +169,4 @@ CREATE INDEX IF NOT EXISTS idx_export_jobs_user_id_created_at
 
 CREATE INDEX IF NOT EXISTS idx_export_jobs_status_created_at
   ON public.export_jobs (status, created_at DESC);
+

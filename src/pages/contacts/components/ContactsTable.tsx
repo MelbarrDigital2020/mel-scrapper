@@ -82,6 +82,40 @@ type ApiResponse = {
   };
 };
 
+function downloadExportJob(jobId: string) {
+  const base = api.defaults.baseURL || "http://localhost:5000/api";
+  window.open(`${base}/export/jobs/${jobId}/download`, "_blank");
+}
+
+// ✅ Convert /api/export -> jobId -> poll -> download
+async function waitForExportJob(
+  jobId: string,
+  opts?: { intervalMs?: number; timeoutMs?: number },
+) {
+  const intervalMs = opts?.intervalMs ?? 1500;
+  const timeoutMs = opts?.timeoutMs ?? 2 * 60 * 1000; // 2 minutes
+
+  const started = Date.now();
+
+  while (true) {
+    const res = await api.get(`/export/jobs/${jobId}`);
+    const job = res.data?.job;
+
+    if (!job) throw new Error("Export job not found");
+
+    if (job.status === "completed") return job;
+    if (job.status === "failed") {
+      throw new Error(job.error_message || "Export failed");
+    }
+
+    if (Date.now() - started > timeoutMs) {
+      throw new Error("Export timed out. Please try again.");
+    }
+
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+}
+
 export default function ContactsTable({
   search,
   filters,
@@ -129,12 +163,16 @@ export default function ContactsTable({
     "selected",
   );
 
+  // Exporting Button COde
+  const [exporting, setExporting] = useState(false);
+
   const normalizedSearch = search.trim();
 
   // ✅ reset page + selection when search/filters change
   useEffect(() => {
     setPage(1);
     setSelectedRows(new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, JSON.stringify(filters)]);
 
   // ✅ fetch contacts from backend
@@ -258,12 +296,10 @@ export default function ContactsTable({
     format: "csv" | "excel",
     headerKeys: string[],
   ) => {
-    // map FE keys -> BE keys
     const mappedHeaders = headerKeys
       .map((k) => CONTACT_EXPORT_HEADER_MAP[k])
       .filter(Boolean);
 
-    // build payload based on exportMode
     const payload =
       exportMode === "selected"
         ? {
@@ -271,7 +307,7 @@ export default function ContactsTable({
             mode: "selected",
             format,
             headers: mappedHeaders,
-            ids: Array.from(selectedRows), // ✅ UUIDs
+            ids: Array.from(selectedRows),
           }
         : {
             entity: "contacts",
@@ -280,38 +316,27 @@ export default function ContactsTable({
             headers: mappedHeaders,
             query: {
               search: normalizedSearch || undefined,
-              filters, // ✅ your filters object
+              filters,
               sortBy: sortBy || undefined,
               sortOrder,
             },
           };
 
     try {
-      // IMPORTANT: responseType blob
-      const res = await api.post("/export", payload, { responseType: "blob" });
+      setExporting(true);
 
-      // filename from header if backend sets it; else fallback
-      const contentDisposition = res.headers["content-disposition"] as
-        | string
-        | undefined;
-      const filename =
-        contentDisposition?.match(/filename="(.+)"/)?.[1] ||
-        `contacts_export.${format === "csv" ? "csv" : "xlsx"}`;
+      const createRes = await api.post("/export", payload);
+      const jobId = createRes.data?.jobId;
 
-      const blob = new Blob([res.data], {
-        type: res.headers["content-type"] || "application/octet-stream",
-      });
-      const url = window.URL.createObjectURL(blob);
+      if (!jobId) throw new Error("JobId missing from export response");
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      await waitForExportJob(jobId);
+
+      downloadExportJob(jobId);
     } catch (err) {
       console.error("Export failed:", err);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -439,26 +464,23 @@ export default function ContactsTable({
           {/* 🔽 Export Dropdown */}
           <div ref={exportDropdownRef} className="relative">
             <button
+              disabled={exporting || total === 0}
               onClick={() => {
                 setIsExportOpen((v) => !v);
                 setIsListOpen(false);
               }}
               className={`flex items-center gap-1.5 px-3 h-9 rounded-lg border transition
-                ${
-                  selectedRows.size === 0
-                    ? "opacity-40 cursor-not-allowed border-border-light"
-                    : "border-border-light hover:bg-background"
-                }`}
+              ${exporting || total === 0 ? "opacity-40 cursor-not-allowed" : "border-border-light hover:bg-background"}`}
             >
               <FiDownload size={14} />
               Export
               <FiChevronDown size={14} />
             </button>
 
-            {isExportOpen && selectedRows.size > 0 && (
+            {isExportOpen && (
               <div className="absolute right-0 mt-2 w-56 bg-background-card border border-border-light rounded-xl shadow-xl z-50 overflow-hidden">
                 <button
-                  disabled={selectedRows.size === 0}
+                  disabled={exporting || selectedRows.size === 0}
                   onClick={() => {
                     setExportMode("selected");
                     setIsExportModalOpen(true);
@@ -471,6 +493,7 @@ export default function ContactsTable({
                 </button>
 
                 <button
+                  disabled={exporting}
                   onClick={() => {
                     setExportMode("filtered");
                     setIsExportModalOpen(true);
