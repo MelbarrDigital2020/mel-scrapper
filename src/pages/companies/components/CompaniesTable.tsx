@@ -407,7 +407,7 @@ export default function CompaniesTable({
                 </div>
 
                 {/* Apply */}
-                <button
+                {/* <button
                   onClick={() => setIsSortOpen(false)}
                   disabled={!sortBy}
                   className={`w-full h-9 rounded-lg text-sm transition
@@ -418,7 +418,7 @@ export default function CompaniesTable({
                     }`}
                 >
                   Apply
-                </button>
+                </button> */}
               </div>
             )}
           </div>
