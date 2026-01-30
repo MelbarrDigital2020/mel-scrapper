@@ -1,13 +1,13 @@
 import { Router } from "express";
-import { startSync, getSyncStatus } from "./sync.controller";
-import { authMiddleware } from "../../middlewares/auth.middleware"; // adjust path
+import { startSync, getSyncStatus, getSyncHistory } from "./sync.controller";
+import { authMiddleware } from "../../middlewares/auth.middleware";
 
 const router = Router();
 
-// Start sync (background)
 router.post("/start", authMiddleware, startSync);
-
-// Check status
 router.get("/status/:jobId", authMiddleware, getSyncStatus);
+
+// ✅ NEW
+router.get("/history", authMiddleware, getSyncHistory);
 
 export default router;

@@ -13,6 +13,7 @@ import {
   FiGrid,
   FiLinkedin,
 } from "react-icons/fi";
+import { useToast } from "../../shared/toast/ToastContext";
 
 /* ---------- Company Logo Helper ---------- */
 const getCompanyLogo = (domain: string) =>
@@ -56,11 +57,6 @@ const COMPANY_EXPORT_HEADER_MAP: Record<string, string> = {
   foundedYear: "founded_year", // only if exists; otherwise remove
   description: "description", // only if exists; otherwise remove
 };
-
-function downloadExportJob(jobId: string) {
-  const base = api.defaults.baseURL || "http://localhost:5000/api";
-  window.open(`${base}/export/jobs/${jobId}/download`, "_blank");
-}
 
 async function waitForExportJob(
   jobId: string,
@@ -118,6 +114,12 @@ export default function CompaniesTable({
 
   const listDropdownRef = useRef<HTMLDivElement | null>(null);
   const exportDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [readyDownload, setReadyDownload] = useState<{
+    jobId: string;
+    fileName?: string;
+  } | null>(null);
+
+  const { showToast } = useToast();
 
   /* ---------- Sort Dropdown Ref ---------- */
   const sortDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -268,14 +270,54 @@ export default function CompaniesTable({
     fetchCompanies();
   }, [search, filters, page, rowsPerPage, sortBy, sortOrder]);
 
+  useEffect(() => {
+    if (!readyDownload) return;
+    const t = setTimeout(() => setReadyDownload(null), 15000);
+    return () => clearTimeout(t);
+  }, [readyDownload]);
+
+  function getDownloadUrl(jobId: string) {
+    const base = (api.defaults.baseURL || "http://localhost:5000").replace(
+      /\/+$/,
+      "",
+    );
+    const hasApi = /\/api$/i.test(base);
+    const apiBase = hasApi ? base : `${base}/api`;
+    return `${apiBase}/export/jobs/${jobId}/download`;
+  }
+
+  function showExportReadyToast(fileName?: string) {
+    showToast({
+      type: "success",
+      title: "Export ready",
+      message: `${fileName || "Your file"} is ready. Click Download below.`,
+    });
+  }
+
   // Export Code
   const handleExport = async (
     format: "csv" | "excel",
     headerKeys: string[],
+    listName: string,
   ) => {
     const mappedHeaders = headerKeys
       .map((k) => COMPANY_EXPORT_HEADER_MAP[k])
       .filter(Boolean);
+
+    if (!listName?.trim()) {
+      console.error("Export failed: listName missing");
+      return;
+    }
+
+    if (mappedHeaders.length === 0) {
+      console.error("Export failed: No mapped headers");
+      return;
+    }
+
+    if (exportMode === "selected" && selectedRows.size === 0) {
+      console.error("Export failed: No selected rows");
+      return;
+    }
 
     const payload =
       exportMode === "selected"
@@ -285,12 +327,14 @@ export default function CompaniesTable({
             format,
             headers: mappedHeaders,
             ids: Array.from(selectedRows),
+            listName: listName.trim(),
           }
         : {
             entity: "companies",
             mode: "filtered",
             format,
             headers: mappedHeaders,
+            listName: listName.trim(),
             query: {
               search: search?.trim() || undefined,
               filters,
@@ -309,6 +353,7 @@ export default function CompaniesTable({
           };
 
     try {
+      setReadyDownload(null);
       setExporting(true);
 
       const createRes = await api.post("/export", payload);
@@ -316,11 +361,16 @@ export default function CompaniesTable({
 
       if (!jobId) throw new Error("JobId missing from export response");
 
-      await waitForExportJob(jobId);
+      const job = await waitForExportJob(jobId);
+      showExportReadyToast(job?.file_name);
+      setReadyDownload({ jobId, fileName: job?.file_name });
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Export failed. Please try again.";
 
-      downloadExportJob(jobId);
-    } catch (err) {
-      console.error("Export failed:", err);
+      showToast({ type: "error", title: "Export failed", message: msg });
     } finally {
       setExporting(false);
     }
@@ -521,6 +571,52 @@ export default function CompaniesTable({
         </div>
       </div>
 
+      {readyDownload && (
+        <div className="fixed bottom-6 right-6 z-[500]">
+          <div className="bg-background-card border border-border-light shadow-xl rounded-2xl p-4 w-[340px]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold">Export ready</div>
+                <div className="text-xs text-text-secondary mt-1">
+                  {readyDownload.fileName || "Your file is ready to download"}
+                </div>
+              </div>
+
+              <button
+                onClick={() => setReadyDownload(null)}
+                className="h-8 w-8 rounded-lg border border-border-light hover:bg-background flex items-center justify-center"
+                title="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => {
+                  window.open(getDownloadUrl(readyDownload.jobId), "_blank");
+                  setReadyDownload(null);
+                }}
+                className="flex-1 h-9 rounded-lg bg-primary text-white hover:brightness-110 transition"
+              >
+                Download
+              </button>
+
+              <button
+                onClick={() => {
+                  // optional: redirect user to export history page
+                  // navigate("/settings/export-history")
+                  setReadyDownload(null);
+                }}
+                className="h-9 px-3 rounded-lg border border-border-light hover:bg-background transition text-sm"
+              >
+                Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 📊 TABLE — SAME INTERACTIONS */}
       <div className="flex-1 overflow-auto">
         <table className="min-w-[1600px] w-full text-sm border-collapse">
@@ -680,7 +776,9 @@ export default function CompaniesTable({
           selectedCount={exportMode === "selected" ? selectedRows.size : total}
           canUseCredits={false}
           onClose={() => setIsExportModalOpen(false)}
-          onExport={(format, headerKeys) => handleExport(format, headerKeys)}
+          onExport={(format, headerKeys, exportListName) =>
+            handleExport(format, headerKeys, exportListName)
+          }
         />
       )}
 

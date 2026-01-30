@@ -6,7 +6,7 @@ export const exportController = {
   exportEntity: async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user?.userId as string;
-      const { entity, mode, format, headers, ids, query } = req.body;
+      const { entity, mode, format, headers, ids, query, listName } = req.body;
 
       const out = await exportService.createJob({
         entity,
@@ -16,6 +16,7 @@ export const exportController = {
         ids,
         query,
         userId,
+        listName, // ✅ NEW
       });
 
       return res.status(202).json({ success: true, jobId: out.jobId });
@@ -35,7 +36,9 @@ export const exportController = {
       const jobs = await exportService.listJobs(userId);
       return res.json({ success: true, jobs });
     } catch (err: any) {
-      return res.status(500).json({ success: false, message: err?.message || "Failed" });
+      return res
+        .status(500)
+        .json({ success: false, message: err?.message || "Failed" });
     }
   },
 
@@ -46,11 +49,14 @@ export const exportController = {
       const jobId = req.params.id;
 
       const job = await exportService.getJob(userId, jobId);
-      if (!job) return res.status(404).json({ success: false, message: "Not found" });
+      if (!job)
+        return res.status(404).json({ success: false, message: "Not found" });
 
       return res.json({ success: true, job });
     } catch (err: any) {
-      return res.status(500).json({ success: false, message: err?.message || "Failed" });
+      return res
+        .status(500)
+        .json({ success: false, message: err?.message || "Failed" });
     }
   },
 
@@ -61,7 +67,34 @@ export const exportController = {
       const jobId = req.params.id;
 
       const job = await exportService.getJob(userId, jobId);
-      if (!job) return res.status(404).json({ success: false, message: "Not found" });
+      if (!job)
+        return res.status(404).json({ success: false, message: "Not found" });
+
+      if (job.status !== "completed" || !job.file_path) {
+        return res.status(409).json({ success: false, message: "File not ready" });
+      }
+
+      await markJobDelivered(jobId);
+
+      // ✅ file_name comes from DB (we will set it based on listName)
+      return res.download(job.file_path, job.file_name || `export_${jobId}`);
+    } catch (err: any) {
+      return res
+        .status(500)
+        .json({ success: false, message: err?.message || "Download failed" });
+    }
+  },
+
+    // ✅ NEW: GET /api/export/jobs/:id/download-public?token=xxxx
+  downloadJobPublic: async (req: Request, res: Response) => {
+    try {
+      const jobId = req.params.id;
+      const token = String(req.query.token || "");
+
+      const job = await exportService.getJobByPublicToken(jobId, token);
+      if (!job) {
+        return res.status(404).json({ success: false, message: "Invalid link" });
+      }
 
       if (job.status !== "completed" || !job.file_path) {
         return res.status(409).json({ success: false, message: "File not ready" });
@@ -71,7 +104,11 @@ export const exportController = {
 
       return res.download(job.file_path, job.file_name || `export_${jobId}`);
     } catch (err: any) {
-      return res.status(500).json({ success: false, message: err?.message || "Download failed" });
+      console.error("PUBLIC DOWNLOAD ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: err?.message || "Download failed",
+      });
     }
   },
 };

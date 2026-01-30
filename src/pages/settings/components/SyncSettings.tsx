@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FiCheckCircle,
   FiXCircle,
@@ -33,50 +33,14 @@ export default function SyncSettings() {
 
   const [jobId, setJobId] = useState<string | null>(null);
   const [job, setJob] = useState<any>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
 
   const [syncing, setSyncing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(
     new Date(Date.now() - 2 * 60 * 60 * 1000), // example: 2 hours ago
   );
-
-  const history: SyncHistoryRow[] = [
-    {
-      id: "1",
-      date: "April 24, 2024",
-      dataSynced: "Contacts, Calendar, Tasks, Files",
-      status: "success",
-      details: "Completed without issues.",
-    },
-    {
-      id: "2",
-      date: "April 23, 2024",
-      dataSynced: "Notes, Files",
-      status: "failed",
-      details: "Network error.",
-    },
-    {
-      id: "3",
-      date: "April 22, 2024",
-      dataSynced: "Contacts, Calendar",
-      status: "success",
-      details: "Sync completed.",
-    },
-    {
-      id: "4",
-      date: "April 21, 2024",
-      dataSynced: "Tasks, Notes",
-      status: "success",
-      details: "Data synced.",
-    },
-    {
-      id: "5",
-      date: "April 20, 2024",
-      dataSynced: "Files",
-      status: "success",
-      details: "All files updated.",
-    },
-    // add more rows if you want
-  ];
 
   // -------------------- derived --------------------
   const allChecked = useMemo(
@@ -131,11 +95,8 @@ export default function SyncSettings() {
   const toggleAll = () => {
     const next = !allChecked;
     setSelected({
+      companies: next,
       contacts: next,
-      calendar: next,
-      tasks: next,
-      notes: next,
-      files: next,
     });
   };
 
@@ -179,13 +140,34 @@ export default function SyncSettings() {
 
   // -------------------- pagination (simple UI) --------------------
   const [page, setPage] = useState(1);
+
   const pageSize = 5;
 
-  const totalPages = Math.max(1, Math.ceil(history.length / pageSize));
-  const pageRows = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return history.slice(start, start + pageSize);
-  }, [history, page]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const pageRows = history;
+
+  // Sync History
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setHistoryLoading(true);
+
+        const res = await api.get("/sync/history", {
+          params: { page, limit: pageSize },
+        });
+
+        setHistory(res.data.jobs || []);
+        setTotal(res.data.total || 0);
+      } catch (e) {
+        setHistory([]);
+        setTotal(0);
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+
+    load();
+  }, [page, pageSize]);
 
   // -------------------- UI --------------------
   return (
@@ -293,18 +275,64 @@ export default function SyncSettings() {
               </thead>
 
               <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                {pageRows.map((row) => (
-                  <tr key={row.id} className="align-top">
-                    <td className="px-4 py-3 whitespace-nowrap">{row.date}</td>
-                    <td className="px-4 py-3">{row.dataSynced}</td>
-                    <td className="px-4 py-3">
-                      <StatusPill status={row.status} />
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                      {row.details}
+                {historyLoading ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-4 py-6 text-center text-gray-500"
+                    >
+                      Loading...
                     </td>
                   </tr>
-                ))}
+                ) : pageRows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-4 py-6 text-center text-gray-500"
+                    >
+                      No sync history found
+                    </td>
+                  </tr>
+                ) : (
+                  pageRows.map((job: any) => {
+                    const dateText = job.createdAt
+                      ? new Date(job.createdAt).toLocaleString()
+                      : "-";
+
+                    const dataSynced = (job.tasks || [])
+                      .map((t: any) => t.label)
+                      .join(", ");
+
+                    const uiStatus =
+                      job.status === "completed"
+                        ? "success"
+                        : job.status === "failed"
+                          ? "failed"
+                          : "success"; // treat queued/running as success style
+
+                    const details =
+                      job.status === "failed"
+                        ? job.error || "Failed"
+                        : job.status === "completed"
+                          ? "Completed"
+                          : job.status;
+
+                    return (
+                      <tr key={job.id} className="align-top">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {dateText}
+                        </td>
+                        <td className="px-4 py-3">{dataSynced || "-"}</td>
+                        <td className="px-4 py-3">
+                          <StatusPill status={uiStatus} />
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                          {details}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -420,21 +448,35 @@ function Checkbox({
   );
 }
 
-function StatusPill({ status }: { status: "success" | "failed" }) {
-  const success = status === "success";
+function StatusPill({
+  status,
+}: {
+  status: "success" | "failed" | "running" | "queued";
+}) {
+  const isSuccess = status === "success";
+  const isRunning = status === "running";
+  const isQueued = status === "queued";
+
+  const classes = isSuccess
+    ? "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400"
+    : isRunning
+      ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
+      : isQueued
+        ? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+        : "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400";
+
   return (
     <span
-      className={`
-        inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium
-        ${
-          success
-            ? "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400"
-            : "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400"
-        }
-      `}
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${classes}`}
     >
-      {success ? <FiCheckCircle /> : <FiXCircle />}
-      {success ? "Success" : "Failed"}
+      {isSuccess ? <FiCheckCircle /> : <FiXCircle />}
+      {isSuccess
+        ? "Success"
+        : isRunning
+          ? "Running"
+          : isQueued
+            ? "Queued"
+            : "Failed"}
     </span>
   );
 }

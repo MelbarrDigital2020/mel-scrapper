@@ -1,5 +1,13 @@
 import { useMemo, useState } from "react";
-import { FiX, FiChevronDown, FiChevronUp, FiLock, FiCheckSquare, FiSquare, FiPlus } from "react-icons/fi";
+import {
+  FiX,
+  FiChevronDown,
+  FiChevronUp,
+  FiLock,
+  FiCheckSquare,
+  FiSquare,
+  FiPlus,
+} from "react-icons/fi";
 import { useToast } from "../../shared/toast/ToastContext.tsx";
 
 type ExportFormat = "csv" | "excel";
@@ -15,36 +23,39 @@ type Props = {
   mode: "list" | "export";
   selectedCount?: number;
 
-  // ✅ NEW: export includes format + selected headers
-  onExport?: (format: ExportFormat, selectedHeaderKeys: string[]) => void;
+  // ✅ export includes list name (required)
+  onExport?: (
+    format: ExportFormat,
+    selectedHeaderKeys: string[],
+    exportListName: string
+  ) => void;
 
-  // ✅ NEW: lock/unlock credit fields
   canUseCredits?: boolean;
 };
 
 const EXPORT_HEADERS: ExportHeader[] = [
-  // ✅ Free fields
+  // ✅ Free fields (these keys must match backend allowed header keys)
   { key: "name", label: "Name" },
-  { key: "jobTitle", label: "Job Title" },
-  { key: "company", label: "Company" },
-  { key: "companyDomain", label: "Company Domain" },
-  { key: "domain", label: "Domain" },
-  { key: "location", label: "Location" },
-  { key: "industry", label: "Industry" },
-  { key: "employees", label: "Employees Range" },
-  { key: "revenue", label: "Revenue Range" },
+  { key: "job_title", label: "Job Title" }, // ✅ FIX: match backend "job_title"
+  { key: "company_name", label: "Company" }, // ✅ FIX: match backend "company_name"
+  { key: "company_domain", label: "Company Domain" }, // ✅ FIX: match backend "company_domain"
+  { key: "email_domain", label: "Domain" }, // ✅ FIX: match backend "email_domain"
+  { key: "country", label: "Location" }, // ✅ FIX: match backend "country"
+  { key: "company_industry", label: "Industry" }, // ✅ FIX: match backend "company_industry"
+  { key: "company_employee_range", label: "Employees Range" }, // ✅ FIX: match backend "company_employee_range"
+  { key: "company_revenue_range", label: "Revenue Range" }, // ✅ FIX: match backend "company_revenue_range"
 
-  // 🔒 Credit fields (examples)
+  // 🔒 Credit fields
   { key: "email", label: "Email", credit: true },
-  { key: "phone", label: "Phone", credit: true },
-  { key: "linkedin", label: "LinkedIn", credit: true },
+  { key: "company_phone", label: "Phone", credit: true }, // ✅ FIX: backend has company_phone (or use "company_phone" for contacts view)
+  { key: "linkedin_url", label: "LinkedIn", credit: true }, // ✅ FIX: match backend "linkedin_url"
 ];
 
 export default function ContactsModal({
   onClose,
   mode,
   onExport,
-  selectedCount,
+  selectedCount = 0,
   canUseCredits = false,
 }: Props) {
   const { showToast } = useToast();
@@ -55,6 +66,13 @@ export default function ContactsModal({
     mode === "list" ? "create" : null
   );
 
+  // ✅ Export list name (required in export modal)
+  const [exportListName, setExportListName] = useState("");
+  const [exportListNameTouched, setExportListNameTouched] = useState(false);
+
+  const exportListNameInvalid =
+    mode === "export" && exportListNameTouched && !exportListName.trim();
+
   const toggle = (key: "create" | "own" | "shared") => {
     setOpen((prev) => (prev === key ? null : key));
   };
@@ -63,7 +81,10 @@ export default function ContactsModal({
   const creditHeaders = useMemo(() => EXPORT_HEADERS.filter((h) => h.credit), []);
 
   // ✅ default selected = free only
-  const defaultSelected = useMemo(() => freeHeaders.map((h) => h.key), [freeHeaders]);
+  const defaultSelected = useMemo(
+    () => freeHeaders.map((h) => h.key),
+    [freeHeaders]
+  );
   const [selectedHeaders, setSelectedHeaders] = useState<string[]>(defaultSelected);
 
   const isSelected = (key: string) => selectedHeaders.includes(key);
@@ -94,6 +115,8 @@ export default function ContactsModal({
 
   const clearAll = () => setSelectedHeaders([]);
 
+  const exportDisabled = selectedHeaders.length === 0 || !exportListName.trim();
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="w-full max-w-md bg-background-card rounded-xl shadow-xl border border-border-light">
@@ -106,6 +129,7 @@ export default function ContactsModal({
           <button
             onClick={onClose}
             className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-background"
+            type="button"
           >
             <FiX />
           </button>
@@ -118,8 +142,28 @@ export default function ContactsModal({
               <div className="space-y-1">
                 <p className="text-text-secondary">You are about to export</p>
                 <p className="font-semibold text-sm">
-                  {selectedCount ?? 0} selected contact{selectedCount === 1 ? "" : "s"}
+                  {selectedCount} selected contact{selectedCount === 1 ? "" : "s"}
                 </p>
+              </div>
+
+              {/* ✅ REQUIRED LIST NAME INPUT (ABOVE CSV/EXCEL) */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-text-secondary">
+                  List name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={exportListName}
+                  required
+                  onChange={(e) => setExportListName(e.target.value)}
+                  onBlur={() => setExportListNameTouched(true)}
+                  placeholder="Please enter list name"
+                  className={`w-full h-9 px-3 rounded-lg bg-background border ${
+                    exportListNameInvalid ? "border-red-500" : "border-border-light"
+                  }`}
+                />
+                {exportListNameInvalid && (
+                  <p className="text-xs text-red-500">Please enter list name</p>
+                )}
               </div>
 
               {/* Format */}
@@ -148,7 +192,9 @@ export default function ContactsModal({
                 <div className="px-3 py-2 border-b border-border-light flex items-center justify-between bg-background">
                   <div>
                     <p className="font-medium">Select headers</p>
-                    <p className="text-xs text-text-secondary">Selected: {selectedHeaders.length}</p>
+                    <p className="text-xs text-text-secondary">
+                      Selected: {selectedHeaders.length}
+                    </p>
                   </div>
 
                   <div className="flex gap-2">
@@ -172,7 +218,9 @@ export default function ContactsModal({
                 <div className="max-h-64 overflow-auto p-2 space-y-2">
                   {/* Free */}
                   <div>
-                    <p className="px-2 py-1 text-xs font-semibold text-text-secondary">Free fields</p>
+                    <p className="px-2 py-1 text-xs font-semibold text-text-secondary">
+                      Free fields
+                    </p>
                     <div className="space-y-1">
                       {freeHeaders.map((h) => (
                         <button
@@ -203,8 +251,11 @@ export default function ContactsModal({
                             key={h.key}
                             type="button"
                             onClick={() => toggleHeader(h)}
-                            className={`w-full flex items-center justify-between px-2 py-2 rounded-lg transition
-                              ${locked ? "opacity-60 cursor-not-allowed" : "hover:bg-background"}`}
+                            className={`w-full flex items-center justify-between px-2 py-2 rounded-lg transition ${
+                              locked
+                                ? "opacity-60 cursor-not-allowed"
+                                : "hover:bg-background"
+                            }`}
                             title={locked ? "Credits required" : "Select this field"}
                           >
                             <div className="flex items-center gap-2">
@@ -224,7 +275,9 @@ export default function ContactsModal({
               </div>
 
               {selectedHeaders.length === 0 && (
-                <p className="text-xs text-red-500">Please select at least 1 header to export.</p>
+                <p className="text-xs text-red-500">
+                  Please select at least 1 header to export.
+                </p>
               )}
             </>
           )}
@@ -232,7 +285,11 @@ export default function ContactsModal({
           {/* LIST modal (your existing UI) */}
           {mode === "list" && (
             <>
-              <Accordion title="Create List" isOpen={open === "create"} onClick={() => toggle("create")}>
+              <Accordion
+                title="Create List"
+                isOpen={open === "create"}
+                onClick={() => toggle("create")}
+              >
                 <div className="space-y-2">
                   <select className="w-full h-9 rounded-lg bg-background border border-border-light px-3">
                     <option>Select existing list</option>
@@ -245,21 +302,32 @@ export default function ContactsModal({
                       placeholder="New list name"
                       className="flex-1 h-9 px-3 rounded-lg bg-background border border-border-light"
                     />
-                    <button className="h-9 px-3 rounded-lg bg-primary text-white hover:brightness-110">
+                    <button
+                      type="button"
+                      className="h-9 px-3 rounded-lg bg-primary text-white hover:brightness-110"
+                    >
                       <FiPlus />
                     </button>
                   </div>
                 </div>
               </Accordion>
 
-              <Accordion title="Own Lists" isOpen={open === "own"} onClick={() => toggle("own")}>
+              <Accordion
+                title="Own Lists"
+                isOpen={open === "own"}
+                onClick={() => toggle("own")}
+              >
                 <select className="w-full h-9 rounded-lg bg-background border border-border-light px-3">
                   <option>My Leads</option>
                   <option>Investors</option>
                 </select>
               </Accordion>
 
-              <Accordion title="Shared Lists" isOpen={open === "shared"} onClick={() => toggle("shared")}>
+              <Accordion
+                title="Shared Lists"
+                isOpen={open === "shared"}
+                onClick={() => toggle("shared")}
+              >
                 <select className="w-full h-9 rounded-lg bg-background border border-border-light px-3">
                   <option>Marketing Team</option>
                   <option>BD Team</option>
@@ -274,30 +342,56 @@ export default function ContactsModal({
           <button
             onClick={onClose}
             className="h-9 px-4 rounded-lg border border-border-light hover:bg-background"
+            type="button"
           >
             Cancel
           </button>
 
           {mode === "export" ? (
             <button
-              disabled={selectedHeaders.length === 0}
+              disabled={exportDisabled}
               onClick={() => {
-                showToast({ type: "info", title: "Export started", message: "Preparing your file…" });
-                onExport?.(exportFormat, selectedHeaders);
+                const name = exportListName.trim();
+                if (!name) {
+                  setExportListNameTouched(true);
+                  showToast({
+                    type: "error",
+                    title: "List name required",
+                    message: "Please enter list name",
+                  });
+                  return;
+                }
+
+                showToast({
+                  type: "info",
+                  title: "Export started",
+                  message: "Preparing your file…",
+                });
+
+                onExport?.(exportFormat, selectedHeaders, name);
                 onClose();
               }}
-              className={`h-9 px-4 rounded-lg text-white transition
-                ${selectedHeaders.length === 0 ? "bg-primary/40 cursor-not-allowed" : "bg-primary hover:brightness-110"}`}
+              className={`h-9 px-4 rounded-lg text-white transition ${
+                exportDisabled
+                  ? "bg-primary/40 cursor-not-allowed"
+                  : "bg-primary hover:brightness-110"
+              }`}
+              type="button"
             >
               Export
             </button>
           ) : (
             <button
               onClick={() => {
-                showToast({ type: "success", title: "Contact added", message: "Contact successfully added to list" });
+                showToast({
+                  type: "success",
+                  title: "Contact added",
+                  message: "Contact successfully added to list",
+                });
                 onClose();
               }}
               className="h-9 px-4 rounded-lg bg-primary text-white hover:brightness-110"
+              type="button"
             >
               Add
             </button>
@@ -325,12 +419,15 @@ function Accordion({
       <button
         onClick={onClick}
         className="w-full flex items-center justify-between px-3 py-2 font-medium hover:bg-background rounded-lg"
+        type="button"
       >
         {title}
         {isOpen ? <FiChevronUp /> : <FiChevronDown />}
       </button>
 
-      {isOpen && <div className="px-3 py-3 border-t border-border-light">{children}</div>}
+      {isOpen && (
+        <div className="px-3 py-3 border-t border-border-light">{children}</div>
+      )}
     </div>
   );
 }

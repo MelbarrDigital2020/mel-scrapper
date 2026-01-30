@@ -1,23 +1,25 @@
 import { Routes, Route, Navigate } from "react-router-dom";
- 
+
 import AuthLayout from "../layout/AuthLayout";
 import AppLayout from "../layout/AppLayout";
- 
+
 import ProtectedRoute from "./ProtectedRoute";
- 
+
 import Dashboard from "../pages/dashboard/DashboardHome";
 import Contacts from "../pages/contacts/ContactsPage";
 import Companies from "../pages/companies/CompaniesPage";
- 
+import Exporthistory from "../pages/export-history/ExportHistoryPage";
+import Debounce from "../pages/debounce/DebouncePage";
+
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
- 
+
 import SettingsPage from "../pages/settings/SettingsPage";
 import ProfileSettings from "../pages/settings/components/ProfileSettings";
 import SecuritySettings from "../pages/settings/components/SecuritySettings";
 import NotificationSettings from "../pages/settings/components/NotificationSettings";
 import SyncSettings from "../pages/settings/components/SyncSettings";
- 
+
 export default function AppRouter() {
   return (
     <Routes>
@@ -27,7 +29,7 @@ export default function AppRouter() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
       </Route>
- 
+
       {/* App routes */}
       <Route
         path="/app"
@@ -39,11 +41,13 @@ export default function AppRouter() {
         }
       >
         <Route index element={<Navigate to="dashboard" replace />} />
- 
+
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="contacts" element={<Contacts />} />
         <Route path="companies" element={<Companies />} />
- 
+        <Route path="export-history" element={<Exporthistory />} />
+        <Route path="debounce" element={<Debounce />} />
+
         {/* ✅ Settings routes */}
         <Route path="settings" element={<SettingsPage />}>
           <Route index element={<Navigate to="profile" replace />} />
@@ -56,5 +60,3 @@ export default function AppRouter() {
     </Routes>
   );
 }
- 
- 

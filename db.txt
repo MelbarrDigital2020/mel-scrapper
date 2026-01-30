@@ -170,3 +170,55 @@ CREATE INDEX IF NOT EXISTS idx_export_jobs_user_id_created_at
 CREATE INDEX IF NOT EXISTS idx_export_jobs_status_created_at
   ON public.export_jobs (status, created_at DESC);
 
+  ALTER TABLE public.export_jobs
+ADD COLUMN IF NOT EXISTS download_token text,
+ADD COLUMN IF NOT EXISTS download_token_expires_at timestamptz,
+ADD COLUMN IF NOT EXISTS email_sent_at timestamptz;
+
+CREATE INDEX IF NOT EXISTS export_jobs_download_token_idx
+ON public.export_jobs (download_token);
+
+
+-- sync_jobs: one row per sync run
+CREATE TABLE IF NOT EXISTS sync_jobs (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('queued','running','completed','failed')),
+  progress INT NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
+
+  options JSONB NOT NULL DEFAULT '{}'::jsonb,
+  result JSONB,
+  error TEXT,
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  started_at TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_jobs_user_created
+  ON sync_jobs (user_id, created_at DESC);
+
+-- sync_tasks: one row per task inside a job (companies / contacts)
+CREATE TABLE IF NOT EXISTS sync_tasks (
+  id UUID PRIMARY KEY,
+  job_id UUID NOT NULL REFERENCES sync_jobs(id) ON DELETE CASCADE,
+
+  key TEXT NOT NULL CHECK (key IN ('companies','contacts')),
+  label TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('queued','running','completed','failed')),
+  progress INT NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
+
+  started_at TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ,
+  error TEXT,
+  result JSONB,
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- prevent duplicates per job
+CREATE UNIQUE INDEX IF NOT EXISTS ux_sync_tasks_job_key
+  ON sync_tasks (job_id, key);
+
+CREATE INDEX IF NOT EXISTS idx_sync_tasks_job
+  ON sync_tasks (job_id);

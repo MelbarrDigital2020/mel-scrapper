@@ -9,4 +9,7 @@ router.get("/jobs", authMiddleware, exportController.listJobs);
 router.get("/jobs/:id", authMiddleware, exportController.getJob);
 router.get("/jobs/:id/download", authMiddleware, exportController.downloadJob);
 
+// ✅ NEW public link
+router.get("/jobs/:id/download-public", exportController.downloadJobPublic);
+
 export default router;

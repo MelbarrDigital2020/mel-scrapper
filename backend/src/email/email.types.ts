@@ -3,7 +3,8 @@ export type EmailTemplate =
   | "LOGIN_OTP"
   | "PASSWORD_RESET"
   | "GENERIC"
-  | "WELCOME";
+  | "WELCOME"
+  | "EXPORT_READY"; // ✅ NEW
 
 export interface SendEmailPayload {
   to: string;

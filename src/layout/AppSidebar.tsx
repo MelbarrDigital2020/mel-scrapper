@@ -1,5 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { FiHome, FiUsers, FiBriefcase, FiSettings } from "react-icons/fi";
+import {
+  FiHome,
+  FiUsers,
+  FiBriefcase,
+  FiSettings,
+  FiDownload,
+  FiTarget,
+} from "react-icons/fi";
 
 import logoFull from "../assets/logo.png";
 import logoIcon from "../assets/logo-icon.png";
@@ -63,6 +70,18 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
           to="companies"
           icon={<FiBriefcase />}
           label="Companies"
+          collapsed={collapsed}
+        />
+        <SidebarItem
+          to="debounce"
+          icon={<FiTarget />}
+          label="Debounce"
+          collapsed={collapsed}
+        />
+        <SidebarItem
+          to="export-history"
+          icon={<FiDownload />}
+          label="Export History"
           collapsed={collapsed}
         />
         <SidebarItem

@@ -1,8 +1,16 @@
 import { randomUUID } from "crypto";
 import type { SyncJob, SyncOptions, SyncTask } from "./sync.types";
 import { runSyncTask } from "./sync.service";
-
-const jobs = new Map<string, SyncJob>();
+import {
+  insertJob,
+  insertTasks,
+  setJobRunning,
+  updateJobProgress,
+  updateTask,
+  completeJob,
+  failJob,
+  getJobWithTasks,
+} from "./sync.repo";
 
 let isWorkerBusy = false;
 const queue: string[] = [];
@@ -31,12 +39,6 @@ function makeTasks(options: SyncOptions): SyncTask[] {
   return tasks;
 }
 
-function updateTask(job: SyncJob, key: "companies" | "contacts", patch: Partial<SyncTask>) {
-  const idx = job.tasks.findIndex((t) => t.key === key);
-  if (idx === -1) return;
-  job.tasks[idx] = { ...job.tasks[idx], ...patch };
-}
-
 function startWorkerLoop() {
   if (isWorkerBusy) return;
   isWorkerBusy = true;
@@ -48,77 +50,56 @@ function startWorkerLoop() {
       return;
     }
 
-    const job = jobs.get(jobId);
-    if (!job) return loop();
-
-    job.status = "running";
-    job.startedAt = new Date().toISOString();
-    job.progress = 1;
-
     try {
-      const result = await runSyncTask(job.options, {
-        onOverallProgress: (p) => {
-          const j = jobs.get(jobId);
-          if (j) j.progress = Math.max(0, Math.min(100, p));
-        },
+      await setJobRunning(jobId);
 
-        onTaskStart: (key) => {
-          const j = jobs.get(jobId);
-          if (!j) return;
-          updateTask(j, key, {
-            status: "running",
-            progress: 1,
-            startedAt: new Date().toISOString(),
-          });
-        },
+      await runSyncTask(
+        // options are read from DB to avoid mismatch
+        (await getJobWithTasks(jobId))!.options,
+        {
+          onOverallProgress: async (p) => {
+            await updateJobProgress(jobId, p);
+          },
 
-        onTaskProgress: (key, p) => {
-          const j = jobs.get(jobId);
-          if (!j) return;
-          updateTask(j, key, {
-            progress: Math.max(0, Math.min(100, p)),
-          });
-        },
+          onTaskStart: async (key) => {
+            await updateTask(jobId, key, {
+              status: "running",
+              progress: 1,
+              startedAt: new Date().toISOString(),
+            });
+          },
 
-        onTaskDone: (key, taskResult) => {
-          const j = jobs.get(jobId);
-          if (!j) return;
-          updateTask(j, key, {
-            status: "completed",
-            progress: 100,
-            finishedAt: new Date().toISOString(),
-            result: taskResult,
-          });
-        },
-      });
+          onTaskProgress: async (key, p) => {
+            await updateTask(jobId, key, { progress: p });
+          },
 
-      const j = jobs.get(jobId);
-      if (j) {
-        j.status = "completed";
-        j.progress = 100;
-        j.finishedAt = new Date().toISOString();
-        j.result = result;
-      }
-    } catch (err: any) {
-      const j = jobs.get(jobId);
-      if (j) {
-        const msg = err?.message || "Unknown error";
-
-        // ✅ mark currently running task as failed
-        const runningTask = j.tasks.find((t) => t.status === "running");
-        if (runningTask) {
-          updateTask(j, runningTask.key as any, {
-            status: "failed",
-            error: msg,
-            finishedAt: new Date().toISOString(),
-          });
+          onTaskDone: async (key, taskResult) => {
+            await updateTask(jobId, key, {
+              status: "completed",
+              progress: 100,
+              finishedAt: new Date().toISOString(),
+              result: taskResult,
+            });
+          },
         }
+      ).then(async (result) => {
+        await completeJob(jobId, result);
+      });
+    } catch (err: any) {
+      const msg = err?.message || "Unknown error";
 
-        j.status = "failed";
-        j.finishedAt = new Date().toISOString();
-        j.error = msg;
-        j.progress = 100;
+      // mark running task failed (best effort)
+      const job = await getJobWithTasks(jobId);
+      const runningTask = job?.tasks?.find((t) => t.status === "running");
+      if (runningTask) {
+        await updateTask(jobId, runningTask.key, {
+          status: "failed",
+          error: msg,
+          finishedAt: new Date().toISOString(),
+        });
       }
+
+      await failJob(jobId, msg);
     }
 
     loop();
@@ -127,28 +108,22 @@ function startWorkerLoop() {
   loop();
 }
 
-export function createSyncJob(options: SyncOptions): SyncJob {
+export async function createSyncJob(userId: string, options: SyncOptions): Promise<SyncJob> {
   const id = randomUUID();
+  const tasks = makeTasks(options);
 
-  const job: SyncJob = {
-    id,
-    status: "queued",
-    progress: 0,
-    createdAt: new Date().toISOString(),
-    startedAt: undefined,
-    finishedAt: undefined,
-    error: undefined,
-    options,
-    tasks: makeTasks(options), // ✅ NEW
-  };
+  await insertJob(userId, id, options);
+  await insertTasks(id, tasks);
 
-  jobs.set(id, job);
   queue.push(id);
-
   setImmediate(() => startWorkerLoop());
+
+  // return full job from DB
+  const job = await getJobWithTasks(id);
+  if (!job) throw new Error("Failed to create job");
   return job;
 }
 
-export function getSyncJob(id: string): SyncJob | null {
-  return jobs.get(id) || null;
+export async function getSyncJob(id: string): Promise<SyncJob | null> {
+  return await getJobWithTasks(id);
 }

@@ -22,13 +22,18 @@ type Props = {
   mode: "list" | "export";
   selectedCount?: number;
 
-  // ✅ NEW: export callback returns format + selected headers
-  onExport?: (format: ExportFormat, selectedHeaderKeys: string[]) => void;
+  // ✅ export callback MUST include listName (required)
+  onExport?: (
+    format: ExportFormat,
+    selectedHeaderKeys: string[],
+    exportListName: string
+  ) => void;
 
-  // ✅ NEW: allow/disallow credit headers
+  // ✅ allow/disallow credit headers
   canUseCredits?: boolean;
 };
 
+// ✅ IMPORTANT: Keep ONLY headers that exist in backend ENTITY_CONFIG.companies.columns
 const EXPORT_HEADERS: ExportHeader[] = [
   // ✅ Free headers
   { key: "companyName", label: "Company Name" },
@@ -40,19 +45,16 @@ const EXPORT_HEADERS: ExportHeader[] = [
   { key: "employees", label: "Employees Range" },
   { key: "revenue", label: "Revenue Range" },
 
-  // 🔒 Credit-based headers (examples)
+  // 🔒 Credit-based headers (SAFE ones only)
   { key: "website", label: "Website", credit: true },
-  { key: "twitter", label: "Twitter / X", credit: true },
-  { key: "headquarters", label: "Headquarters", credit: true },
-  { key: "foundedYear", label: "Founded Year", credit: true },
-  { key: "description", label: "Description", credit: true },
+  { key: "headquarters", label: "Headquarters", credit: true }, // maps to full_address
 ];
 
 export default function CompaniesModal({
   onClose,
   mode,
   onExport,
-  selectedCount,
+  selectedCount = 0,
   canUseCredits = false,
 }: Props) {
   const { showToast } = useToast();
@@ -63,12 +65,12 @@ export default function CompaniesModal({
     mode === "list" ? "create" : null
   );
 
-  // ✅ Default select only FREE headers
-  const defaultSelected = useMemo(() => {
-    return EXPORT_HEADERS.filter((h) => !h.credit).map((h) => h.key);
-  }, []);
+  // ✅ Export List Name (Required in export mode)
+  const [exportListName, setExportListName] = useState("");
+  const [exportListNameTouched, setExportListNameTouched] = useState(false);
 
-  const [selectedHeaders, setSelectedHeaders] = useState<string[]>(defaultSelected);
+  const exportListNameInvalid =
+    mode === "export" && exportListNameTouched && !exportListName.trim();
 
   const toggle = (key: "create" | "own" | "shared") => {
     setOpen((prev) => (prev === key ? null : key));
@@ -76,6 +78,14 @@ export default function CompaniesModal({
 
   const freeHeaders = useMemo(() => EXPORT_HEADERS.filter((h) => !h.credit), []);
   const creditHeaders = useMemo(() => EXPORT_HEADERS.filter((h) => h.credit), []);
+
+  // ✅ Default selected only FREE headers
+  const defaultSelected = useMemo(
+    () => freeHeaders.map((h) => h.key),
+    [freeHeaders]
+  );
+
+  const [selectedHeaders, setSelectedHeaders] = useState<string[]>(defaultSelected);
 
   const isSelected = (key: string) => selectedHeaders.includes(key);
 
@@ -97,13 +107,15 @@ export default function CompaniesModal({
 
   const selectAllFree = () => {
     setSelectedHeaders((prev) => {
-      const freeKeys = freeHeaders.map((h) => h.key);
-      const next = new Set([...prev, ...freeKeys]);
+      const next = new Set(prev);
+      freeHeaders.forEach((h) => next.add(h.key));
       return Array.from(next);
     });
   };
 
   const clearAll = () => setSelectedHeaders([]);
+
+  const exportDisabled = selectedHeaders.length === 0 || !exportListName.trim();
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -129,9 +141,28 @@ export default function CompaniesModal({
               <div className="space-y-1">
                 <p className="text-text-secondary">You are about to export</p>
                 <p className="font-semibold">
-                  {selectedCount ?? 0} selected compan
-                  {selectedCount === 1 ? "y" : "ies"}
+                  {selectedCount} selected compan{selectedCount === 1 ? "y" : "ies"}
                 </p>
+              </div>
+
+              {/* List Name */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-text-secondary">
+                  List name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={exportListName}
+                  required
+                  onChange={(e) => setExportListName(e.target.value)}
+                  onBlur={() => setExportListNameTouched(true)}
+                  placeholder="Please enter list name"
+                  className={`w-full h-9 px-3 rounded-lg bg-background border ${
+                    exportListNameInvalid ? "border-red-500" : "border-border-light"
+                  }`}
+                />
+                {exportListNameInvalid && (
+                  <p className="text-xs text-red-500">Please enter list name</p>
+                )}
               </div>
 
               {/* Format */}
@@ -221,8 +252,9 @@ export default function CompaniesModal({
                             key={h.key}
                             type="button"
                             onClick={() => toggleHeader(h)}
-                            className={`w-full flex items-center justify-between px-2 py-2 rounded-lg transition
-                              ${locked ? "opacity-60 cursor-not-allowed" : "hover:bg-background"}`}
+                            className={`w-full flex items-center justify-between px-2 py-2 rounded-lg transition ${
+                              locked ? "opacity-60 cursor-not-allowed" : "hover:bg-background"
+                            }`}
                             title={locked ? "Credits required" : "Select this field"}
                           >
                             <div className="flex items-center gap-2">
@@ -242,7 +274,6 @@ export default function CompaniesModal({
                 </div>
               </div>
 
-              {/* Validation hint */}
               {selectedHeaders.length === 0 && (
                 <p className="text-xs text-red-500">
                   Please select at least 1 header to export.
@@ -298,21 +329,32 @@ export default function CompaniesModal({
 
           {mode === "export" ? (
             <button
-              disabled={selectedHeaders.length === 0}
+              disabled={exportDisabled}
               onClick={() => {
+                if (!exportListName.trim()) {
+                  setExportListNameTouched(true);
+                  showToast({
+                    type: "error",
+                    title: "List name required",
+                    message: "Please enter list name",
+                  });
+                  return;
+                }
+
                 showToast({
                   type: "success",
                   title: "Export started",
                   message: "Companies export in progress",
                 });
-                onExport?.(exportFormat, selectedHeaders);
+
+                onExport?.(exportFormat, selectedHeaders, exportListName.trim());
                 onClose();
               }}
-              className={`h-9 px-4 rounded-lg text-white transition
-                ${selectedHeaders.length === 0
+              className={`h-9 px-4 rounded-lg text-white transition ${
+                exportDisabled
                   ? "bg-primary/40 cursor-not-allowed"
                   : "bg-primary hover:brightness-110"
-                }`}
+              }`}
             >
               Export
             </button>
