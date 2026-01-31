@@ -665,7 +665,16 @@ export default function ContactsFilter({
                 options={options as string[]}
                 value={filters[key]}
                 onChange={(v) => updateFilter(key, v)}
-                limitWhenEmptySearch={key === "jobTitles" ? 200 : undefined}
+                // ✅ show options immediately for small lists
+                limitWhenEmptySearch={
+                  key === "jobTitles"
+                    ? 200
+                    : key === "jobLevel" ||
+                        key === "employees" ||
+                        key === "industry"
+                      ? 200
+                      : undefined
+                }
               />
             ) : (
               <MultiSelectDropdownObject
@@ -715,6 +724,7 @@ export default function ContactsFilter({
             options={INTENT_FILTER.options}
             value={filters.intent}
             onChange={(v) => updateFilter("intent", v)}
+            limitWhenEmptySearch={200} // ✅ add this
           />
         </FilterAccordion>
         {/* ---------------- LOCKED FILTER (SPECIAL) ---------------- */}
@@ -1061,7 +1071,7 @@ function MultiSelectDropdown({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Type at least 2 letters..."
+            placeholder="Search..."
             className="w-full h-8 px-3 text-xs bg-background border-b border-border-light outline-none"
           />
 
@@ -1237,7 +1247,7 @@ function MultiSelectDropdownObject({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Type at least 2 letters..."
+            placeholder="Search..."
             className="w-full h-8 px-3 text-xs bg-background border-b border-border-light outline-none"
           />
 
