@@ -222,3 +222,164 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_sync_tasks_job_key
 
 CREATE INDEX IF NOT EXISTS idx_sync_tasks_job
   ON sync_tasks (job_id);
+
+-- 1) Enums (optional but nice)
+DO $$ BEGIN
+  CREATE TYPE email_verify_job_type AS ENUM ('single', 'batch_async', 'batch_sync');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE email_verify_job_status AS ENUM ('queued', 'processing', 'completed', 'failed', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE email_verify_provider AS ENUM ('bouncer');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- 2) Jobs table
+CREATE TABLE IF NOT EXISTS email_verification_jobs (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  -- Your user
+  user_id             uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+  -- Provider
+  provider            email_verify_provider NOT NULL DEFAULT 'bouncer',
+  job_type            email_verify_job_type NOT NULL,
+
+  -- Our status
+  status              email_verify_job_status NOT NULL DEFAULT 'queued',
+
+  -- Provider identifiers (batchId for async batches; NULL for single)
+  provider_batch_id   text NULL,
+
+  -- Inputs / file
+  input_source        text NULL,           -- e.g. 'ui-single', 'csv-upload', 'api'
+  file_name           text NULL,
+  file_size_bytes     bigint NULL,
+
+  -- Counts
+  quantity_submitted  integer NOT NULL DEFAULT 0,   -- emails sent to provider
+  duplicates          integer NOT NULL DEFAULT 0,   -- if provider reports duplicates
+  processed           integer NOT NULL DEFAULT 0,   -- processed by provider (status endpoint)
+  stats_deliverable   integer NOT NULL DEFAULT 0,
+  stats_risky         integer NOT NULL DEFAULT 0,
+  stats_undeliverable integer NOT NULL DEFAULT 0,
+  stats_unknown       integer NOT NULL DEFAULT 0,
+
+  -- Credit tracking (what provider reported / what we charged)
+  credits_reserved    integer NOT NULL DEFAULT 0,   -- optional reserve
+  credits_consumed    integer NOT NULL DEFAULT 0,   -- actual used
+  credits_refunded    integer NOT NULL DEFAULT 0,   -- finish/partial returns
+
+  -- Timestamps
+  requested_at        timestamptz NOT NULL DEFAULT now(),  -- when user clicked
+  provider_created_at timestamptz NULL,                    -- from provider 'created'
+  started_at          timestamptz NULL,                    -- from provider 'started' or first poll shows processing
+  completed_at        timestamptz NULL,                    -- from provider 'completed'
+  failed_at           timestamptz NULL,
+
+  -- Errors
+  error_code          text NULL,     -- e.g. http status / provider reason
+  error_message       text NULL,
+
+  -- Raw payloads for debugging/audit
+  request_payload     jsonb NULL,    -- what we sent (emails or metadata)
+  response_payload    jsonb NULL,    -- last/most important response
+  last_status_payload jsonb NULL,    -- status poll response
+  callback_payload    jsonb NULL     -- if you use callback URL
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_verification_jobs_user
+  ON email_verification_jobs(user_id, requested_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_email_verification_jobs_provider_batch
+  ON email_verification_jobs(provider, provider_batch_id)
+  WHERE provider_batch_id IS NOT NULL;
+
+  DO $$ BEGIN
+  CREATE TYPE email_verify_status AS ENUM ('deliverable', 'risky', 'undeliverable', 'unknown');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS email_verification_results (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id            uuid NOT NULL REFERENCES email_verification_jobs(id) ON DELETE CASCADE,
+
+  email             text NOT NULL,
+  status            email_verify_status NOT NULL,
+  reason            text NULL,              -- provider enum like accepted_email, rejected_email, etc.
+  score             integer NULL,           -- 0..100
+  provider_name     text NULL,              -- e.g. google.com
+  retry_after       text NULL,              -- optional
+
+  -- Domain object
+  domain_name       text NULL,
+  domain_accept_all text NULL,              -- 'yes'/'no' as strings per docs
+  domain_disposable text NULL,
+  domain_free       text NULL,
+
+  -- Account object
+  account_role      text NULL,
+  account_disabled  text NULL,
+  account_full      text NULL,
+
+  -- DNS object
+  dns_type          text NULL,
+  dns_record        text NULL,
+
+  toxic             text NULL,
+  toxicity          integer NULL,           -- 0..5
+
+  checked_at        timestamptz NOT NULL DEFAULT now(),
+
+  -- Keep raw provider result (useful for changes/new fields)
+  raw_result        jsonb NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_verification_results_job
+  ON email_verification_results(job_id);
+
+CREATE INDEX IF NOT EXISTS idx_email_verification_results_email
+  ON email_verification_results(email);
+
+DO $$ BEGIN
+  CREATE TYPE credit_event_type AS ENUM ('reserve', 'consume', 'refund', 'adjustment');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS credit_ledger (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  job_id        uuid NULL REFERENCES email_verification_jobs(id) ON DELETE SET NULL,
+
+  provider      email_verify_provider NOT NULL DEFAULT 'bouncer',
+  event_type    credit_event_type NOT NULL,
+
+  -- +credits for refund/adjustment, -credits for consume/reserve
+  amount        integer NOT NULL CHECK (amount <> 0),
+
+  -- Useful info
+  note          text NULL,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+
+  -- For audit/debug
+  provider_ref  text NULL,      -- e.g. batchId
+  meta          jsonb NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_credit_ledger_user_time
+  ON credit_ledger(user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_credit_ledger_job
+  ON credit_ledger(job_id);
+
+  CREATE TABLE IF NOT EXISTS email_verification_events (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id      uuid NOT NULL REFERENCES email_verification_jobs(id) ON DELETE CASCADE,
+  event_type  text NOT NULL,  -- e.g. created, status_poll, download, finish_called, callback_received
+  http_status integer NULL,
+  payload     jsonb NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_verification_events_job_time
+  ON email_verification_events(job_id, created_at DESC);

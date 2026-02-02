@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import api from "../../services/api"; // ✅ adjust path if needed
 import {
   FiSearch,
   FiDownload,
@@ -20,16 +21,14 @@ type ExportStatus = "completed" | "processing" | "failed";
 
 type ExportRow = {
   id: string;
-  listName: string;
-  entity: "contacts" | "companies";
-  format: ExportFormat;
-  leads: number;
-  status: ExportStatus;
-
-  createdAtLabel: string; // display
-  createdAtTs: number; // sorting
-
-  downloadUrl?: string;
+  listName: string; // list_name
+  entity: "contacts" | "companies"; // entity
+  format: ExportFormat; // format
+  leads: number; // row_count
+  status: ExportStatus; // status
+  createdAtLabel: string;
+  createdAtTs: number;
+  downloadUrl?: string; // optional token link
 };
 
 type SortKey =
@@ -41,51 +40,18 @@ type SortKey =
   | "status";
 type SortDir = "asc" | "desc";
 
-/* ---------------- Dummy Data (replace with API later) ---------------- */
-const DUMMY_EXPORTS: ExportRow[] = [
-  {
-    id: "1",
-    listName: "APAC SaaS Founders",
-    entity: "contacts",
-    format: "csv",
-    leads: 532,
-    status: "completed",
-    createdAtLabel: "Jan 30, 2026 • 10:24 AM",
-    createdAtTs: new Date("2026-01-30T10:24:00+05:30").getTime(),
-    downloadUrl: "/downloads/apac-saas-founders.csv",
-  },
-  {
-    id: "2",
-    listName: "US Fintech Companies",
-    entity: "companies",
-    format: "xlsx",
-    leads: 210,
-    status: "completed",
-    createdAtLabel: "Jan 29, 2026 • 6:12 PM",
-    createdAtTs: new Date("2026-01-29T18:12:00+05:30").getTime(),
-    downloadUrl: "/downloads/us-fintech-companies.xlsx",
-  },
-  {
-    id: "3",
-    listName: "Healthcare Leads - West",
-    entity: "contacts",
-    format: "xlsx",
-    leads: 1200,
-    status: "processing",
-    createdAtLabel: "Jan 29, 2026 • 1:03 PM",
-    createdAtTs: new Date("2026-01-29T13:03:00+05:30").getTime(),
-  },
-  {
-    id: "4",
-    listName: "EU Agencies",
-    entity: "companies",
-    format: "csv",
-    leads: 88,
-    status: "failed",
-    createdAtLabel: "Jan 28, 2026 • 9:47 AM",
-    createdAtTs: new Date("2026-01-28T09:47:00+05:30").getTime(),
-  },
-];
+type ApiPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+type ListApiResponse = {
+  success: boolean;
+  rows: ExportRow[];
+  pagination: ApiPagination;
+};
 
 /* ---------------- Helpers ---------------- */
 function FormatBadge({ format }: { format: ExportFormat }) {
@@ -152,14 +118,12 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   return dir === "asc" ? <FiChevronsUp /> : <FiChevronsDown />;
 }
 
-function compareStatus(a: ExportStatus, b: ExportStatus) {
-  // You can change order easily here:
-  const order: Record<ExportStatus, number> = {
-    completed: 1,
-    processing: 2,
-    failed: 3,
-  };
-  return order[a] - order[b];
+function getDownloadUrl(jobId: string) {
+  const base = (api.defaults.baseURL || "http://localhost:5000/api").replace(
+    /\/+$/,
+    ""
+  );
+  return `${base}/export/jobs/${jobId}/download`;
 }
 
 export default function ExportHistoryPage() {
@@ -174,64 +138,66 @@ export default function ExportHistoryPage() {
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState<number>(1);
 
-  const filtered = useMemo(() => {
-    const s = search.trim().toLowerCase();
-    return DUMMY_EXPORTS.filter((row) => {
-      const entityOk = entity === "all" ? true : row.entity === entity;
-      const searchOk = s ? row.listName.toLowerCase().includes(s) : true;
-      return entityOk && searchOk;
-    });
-  }, [entity, search]);
-
-  const sorted = useMemo(() => {
-    const arr = [...filtered];
-
-    arr.sort((a, b) => {
-      let res = 0;
-
-      switch (sortKey) {
-        case "createdAt":
-          res = a.createdAtTs - b.createdAtTs;
-          break;
-        case "listName":
-          res = a.listName.localeCompare(b.listName);
-          break;
-        case "entity":
-          res = a.entity.localeCompare(b.entity);
-          break;
-        case "format":
-          res = a.format.localeCompare(b.format);
-          break;
-        case "leads":
-          res = a.leads - b.leads;
-          break;
-        case "status":
-          res = compareStatus(a.status, b.status);
-          break;
-        default:
-          res = 0;
-      }
-
-      return sortDir === "asc" ? res : -res;
-    });
-
-    return arr;
-  }, [filtered, sortKey, sortDir]);
-
-  // Reset to page 1 when filters/sort/pageSize change
-  useMemo(() => {
-    setPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entity, search, sortKey, sortDir, pageSize]);
-
-  const total = sorted.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  // Data
+  const [rows, setRows] = useState<ExportRow[]>([]);
+  const [total, setTotal] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
   const safePage = Math.min(page, totalPages);
 
-  const paged = useMemo(() => {
-    const start = (safePage - 1) * pageSize;
-    return sorted.slice(start, start + pageSize);
-  }, [sorted, safePage, pageSize]);
+  const [loading, setLoading] = useState(false);
+
+  // ✅ Debounce search (so API not spam)
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // ✅ Reset to page 1 when filters/sort/pageSize change
+  useEffect(() => {
+    setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entity, debouncedSearch, sortKey, sortDir, pageSize]);
+
+  // ✅ Fetch from API
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchHistory() {
+      setLoading(true);
+      try {
+        const res = await api.get<ListApiResponse>("/export-history", {
+          params: {
+            entity,
+            search: debouncedSearch,
+            sortKey,
+            sortDir,
+            page: safePage, // after clamp
+            pageSize,
+          },
+        });
+
+        if (cancelled) return;
+
+        setRows(res.data.rows || []);
+        setTotal(res.data.pagination?.total ?? 0);
+        setTotalPages(res.data.pagination?.totalPages ?? 1);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Export history fetch failed:", err);
+        setRows([]);
+        setTotal(0);
+        setTotalPages(1);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, [entity, debouncedSearch, sortKey, sortDir, safePage, pageSize]);
 
   const rangeFrom = total === 0 ? 0 : (safePage - 1) * pageSize + 1;
   const rangeTo = Math.min(safePage * pageSize, total);
@@ -278,7 +244,7 @@ export default function ExportHistoryPage() {
     );
   }
 
-  // For nicer pagination page buttons
+  // ✅ Pagination buttons (same)
   const pageButtons = useMemo(() => {
     const maxButtons = 5;
     const pages: number[] = [];
@@ -290,6 +256,22 @@ export default function ExportHistoryPage() {
     for (let p = start; p <= end; p++) pages.push(p);
     return pages;
   }, [safePage, totalPages]);
+
+  // ✅ Download handler (if token not present)
+async function handleDownload(row: ExportRow) {
+  try {
+    // ✅ Otherwise use existing export download API (auth cookie required)
+    // Same pattern as ContactsTable getDownloadUrl()
+    window.open(getDownloadUrl(row.id), "_blank");
+
+    // If you want to use public download always:
+    // window.open(getPublicDownloadUrl(row.id), "_blank");
+  } catch (e) {
+    console.error("Download failed:", e);
+  }
+}
+
+
 
   return (
     <div className="space-y-6">
@@ -391,7 +373,16 @@ export default function ExportHistoryPage() {
             </thead>
 
             <tbody>
-              {paged.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-5 py-10 text-center text-sm text-text-secondary"
+                  >
+                    Loading export history...
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
@@ -401,9 +392,8 @@ export default function ExportHistoryPage() {
                   </td>
                 </tr>
               ) : (
-                paged.map((row) => {
-                  const canDownload =
-                    row.status === "completed" && row.downloadUrl;
+                rows.map((row) => {
+                  const canDownload = row.status === "completed" && (row.downloadUrl || row.id);
 
                   return (
                     <tr
@@ -437,7 +427,7 @@ export default function ExportHistoryPage() {
                       {/* Leads */}
                       <td className="px-5 py-4">
                         <span className="text-sm font-semibold text-text-primary">
-                          {row.leads.toLocaleString()}
+                          {Number(row.leads || 0).toLocaleString()}
                         </span>
                       </td>
 
@@ -449,8 +439,8 @@ export default function ExportHistoryPage() {
                       {/* Action */}
                       <td className="px-5 py-4">
                         {canDownload ? (
-                          <a
-                            href={row.downloadUrl}
+                          <button
+                            onClick={() => handleDownload(row)}
                             className="
                               inline-flex items-center gap-2
                               h-8 px-4 rounded
@@ -462,7 +452,7 @@ export default function ExportHistoryPage() {
                           >
                             <FiDownload />
                             Download
-                          </a>
+                          </button>
                         ) : (
                           <button
                             disabled
@@ -517,6 +507,7 @@ export default function ExportHistoryPage() {
                   outline-none focus:ring-2 focus:ring-primary/30 transition
                 "
               >
+                
                 <option value={10}>10</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
@@ -579,9 +570,7 @@ export default function ExportHistoryPage() {
             {/* Page count */}
             <div className="text-sm text-text-secondary">
               Page{" "}
-              <span className="font-semibold text-text-primary">
-                {safePage}
-              </span>{" "}
+              <span className="font-semibold text-text-primary">{safePage}</span>{" "}
               /{" "}
               <span className="font-semibold text-text-primary">
                 {totalPages}
