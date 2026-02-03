@@ -94,6 +94,7 @@ export const login = async (req: Request, res: Response) => {
         message: "Login successful",
         data: {
           twoFaRequired: false,
+          accessToken: data.accessToken,
         },
       });
     }
@@ -114,7 +115,6 @@ export const login = async (req: Request, res: Response) => {
     });
   }
 };
-
 
 export const loginVerifyOtp = async (req: Request, res: Response) => {
   try {
@@ -150,7 +150,6 @@ export const loginVerifyOtp = async (req: Request, res: Response) => {
     });
   }
 };
-
 
 export const loginResendOtp = async (req: Request, res: Response) => {
   try {
