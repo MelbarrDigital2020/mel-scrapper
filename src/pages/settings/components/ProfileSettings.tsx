@@ -22,7 +22,7 @@ export default function ProfileSettings() {
           <img
             src={
               user?.avatar_url
-                ? `/avatars/${user.avatar_url}`
+                ? `${user.avatar_url}`
                 : "/avatars/default_avatar.jpg"
             }
             alt="Profile"

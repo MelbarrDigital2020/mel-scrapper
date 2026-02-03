@@ -171,4 +171,41 @@ export const loginResendOtp = async (req: Request, res: Response) => {
 };
 
 
+export const googleStart = async (req: Request, res: Response) => {
+  try {
+    const url = authService.getGoogleAuthUrl();
+    return res.redirect(url);
+  } catch (err: any) {
+    return res.redirect(`${process.env.APP_URL}/login?error=google_start_failed`);
+  }
+};
+
+export const googleCallback = async (req: Request, res: Response) => {
+  try {
+    const code = String(req.query.code || "");
+    if (!code) {
+      return res.redirect(`${process.env.APP_URL}/login?error=google_no_code`);
+    }
+
+    const ip =
+      (req.headers["x-forwarded-for"] as string)?.split(",")[0] || req.ip;
+
+    const { accessToken } = await authService.loginWithGoogle(code, ip);
+
+    // ✅ SAME cookie name as your normal login
+    res.cookie("access_token", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.redirect(`${process.env.APP_URL}/app/dashboard`);
+  } catch (err: any) {
+    return res.redirect(`${process.env.APP_URL}/login?error=google_failed`);
+  }
+};
+
+
 

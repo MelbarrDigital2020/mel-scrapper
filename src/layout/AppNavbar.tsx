@@ -252,7 +252,7 @@ export default function AppNavbar({
             <img
               src={
                 user?.avatar_url
-                  ? `/avatars/${user.avatar_url}`
+                  ? `${user.avatar_url}`
                   : "/avatars/default_avatar.jpg"
               }
               className="w-8 h-8 rounded-full border"

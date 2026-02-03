@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
 interface JwtPayload {
@@ -9,19 +9,26 @@ interface JwtPayload {
 }
 
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    userId: string;
-    email: string;
-  };
+  user?: { userId: string; email: string };
 }
 
 export const authMiddleware = (
-  req: any,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const token = req.cookies?.access_token;
+    // 1) Try Authorization header first (Postman / mobile / API clients)
+    const authHeader = req.headers.authorization;
+    const bearerToken =
+      authHeader && authHeader.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : null;
+
+    // 2) Fallback to cookie (browser)
+    const cookieToken = (req as any).cookies?.access_token;
+
+    const token = bearerToken || cookieToken;
 
     if (!token) {
       return res.status(401).json({
@@ -31,7 +38,7 @@ export const authMiddleware = (
     }
 
     const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
 
     req.user = {
       userId: decoded.userId,
@@ -46,4 +53,3 @@ export const authMiddleware = (
     });
   }
 };
-

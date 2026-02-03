@@ -1,19 +1,32 @@
 import { Router } from "express";
-import { registerStart, registerVerifyOtp, registerComplete, login, loginVerifyOtp, loginResendOtp} from "./auth.controller";
+import {
+  registerStart,
+  registerVerifyOtp,
+  registerComplete,
+  login,
+  loginVerifyOtp,
+  loginResendOtp,
+  registerResendOtp,
+  googleStart,
+  googleCallback,
+} from "./auth.controller";
 import { authMiddleware } from "../../middlewares/auth.middleware";
-import { registerResendOtp } from "./auth.controller";
 import pool from "../../config/db";
 
 const router = Router();
-
 
 router.post("/register/start", registerStart);
 router.post("/register/verify-otp", registerVerifyOtp);
 router.post("/register/complete", registerComplete);
 router.post("/register/resend-otp", registerResendOtp);
+
 router.post("/login", login);
 router.post("/login/verify-otp", loginVerifyOtp);
 router.post("/login/resend-otp", loginResendOtp);
+
+// ✅ GOOGLE OAUTH
+router.get("/google", googleStart);
+router.get("/google/callback", googleCallback);
 
 // Logout Api
 router.post("/logout", (req, res) => {
@@ -37,7 +50,8 @@ router.get("/me", authMiddleware, async (req: any, res) => {
     const result = await pool.query(
       `
       SELECT
-        id, first_name, last_name, email, role, is_active, email_is_verified, two_fa_enabled, last_login, last_login_ip, created_at, updated_at, avatar_url, contact_number, bio, timezone
+        id, first_name, last_name, email, role, is_active, email_is_verified, two_fa_enabled,
+        last_login, last_login_ip, created_at, updated_at, avatar_url, contact_number, bio, timezone
       FROM users
       WHERE id = $1
       `,
@@ -62,6 +76,5 @@ router.get("/me", authMiddleware, async (req: any, res) => {
     });
   }
 });
-
 
 export default router;

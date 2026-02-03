@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../../services/api";
+
 import AuthLayoutSplit from "./components/AuthLayoutSplit";
 import SocialLoginButton from "./components/SocialLoginButton";
 import PasswordInput from "./components/PasswordInput";
@@ -15,6 +16,9 @@ import logo from "../../assets/logo.png";
 import { FiMail } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { FaMicrosoft } from "react-icons/fa";
+
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api/";
+console.log("VITE_API_URL =", import.meta.env.VITE_API_URL);
 
 export default function LoginPage() {
   const [step, setStep] = useState<"login" | "otp">("login");
@@ -121,7 +125,10 @@ export default function LoginPage() {
             >
               {/* Social login always visible */}
               <div className="space-y-3">
-                <SocialLoginButton
+                <SocialLoginButton 
+                onClick={() => {
+                    window.location.href = `${API}auth/google`;
+                  }}
                   label="Log in with Google"
                   icon={<FcGoogle size={18} />}
                 />
