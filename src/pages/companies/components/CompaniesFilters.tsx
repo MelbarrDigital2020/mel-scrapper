@@ -4,7 +4,18 @@ import { useSaveFilterDialog } from "../../shared/hooks/useSaveFilterDialog";
 import { useToast } from "../../shared/toast/ToastContext";
 
 import {
-  FiChevronDown, FiChevronUp,FiX,FiSave,FiGrid,FiUsers,FiDollarSign,FiLayers,FiTarget,FiLock,FiMapPin,FiCheck,
+  FiChevronDown,
+  FiChevronUp,
+  FiX,
+  FiSave,
+  FiGrid,
+  FiUsers,
+  FiDollarSign,
+  FiLayers,
+  FiTarget,
+  FiLock,
+  FiMapPin,
+  FiCheck,
 } from "react-icons/fi";
 import CompanyData from "../data/CompanyList.json";
 
@@ -36,11 +47,12 @@ type CompanyItem = {
   domain: string;
 };
 
-const COMPANY_OPTIONS: OptionObj[] =
-  ((CompanyData as { companies: CompanyItem[] }).companies ?? []).map((c) => ({
-    label: c.name,
-    value: c.uuid,
-  }));
+const COMPANY_OPTIONS: OptionObj[] = (
+  (CompanyData as { companies: CompanyItem[] }).companies ?? []
+).map((c) => ({
+  label: c.name,
+  value: c.uuid,
+}));
 
 /* ---------------- Labels ---------------- */
 const FILTER_LABELS: Record<SectionKey, string> = {
@@ -311,7 +323,24 @@ const INTENT_FILTER = {
   key: "intent" as const,
   label: "Intent-Based",
   icon: <FiTarget size={14} />,
-  options: ["Hiring", "Fundraising", "Expansion", "Buying Software"],
+  options: [
+    "Marketing",
+    "Finance & Accounting",
+    "Human Resources",
+    "Cybersecurity",
+    "Sales",
+    "Customer Support",
+    "Software Engineering",
+    "IT Leadership",
+    "Data / Analytics / AI",
+    "Executive Leadership",
+    "DevOps / Cloud / Infrastructure",
+    "Operations",
+    "Other / Unclear",
+    "Talent Acquisition & Recruiting",
+    "Product Management",
+    "Customer Success",
+  ],
 };
 
 /* ---------------- Main ---------------- */
@@ -336,7 +365,7 @@ export default function CompaniesFilter({ onApply }: Props) {
   const savedDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const companyOptions = COMPANY_OPTIONS;
-  
+
   const FILTER_CONFIG: {
     key: SectionKey;
     label: string;
@@ -384,7 +413,30 @@ export default function CompaniesFilter({ onApply }: Props) {
       key: "industry",
       label: "Industry",
       icon: <FiLayers size={14} />,
-      options: ["SaaS", "FinTech", "Healthcare", "E-commerce"],
+      options: [
+        "Aerospace & Aviation",
+        "Agriculture, Food & Mining",
+        "Business Services",
+        "Software, Internet & Technology",
+        "Construction & Real Estate",
+        "Education",
+        "Energy, Utilities & Mining",
+        "Financial Services",
+        "Government",
+        "Healthcare, Pharmaceuticals & Biotech",
+        "Insurance",
+        "Legal",
+        "Manufacturing",
+        "Marketing, Advertising & Public Relations",
+        "Media, Entertainment & Publishing",
+        "Non-Profit",
+        "Retail",
+        "Telecommunications",
+        "Transportation & Logistics",
+        "Travel, Recreation & Leisure",
+        "Wholesale & Distribution",
+        "Non-Classifiable",
+      ],
     },
   ];
 
@@ -498,7 +550,7 @@ export default function CompaniesFilter({ onApply }: Props) {
 
   // Apply Filer
   const applyFilters = () => {
-    onApply(filters); 
+    onApply(filters);
   };
 
   return (
@@ -1171,7 +1223,6 @@ function MultiSelectDropdownObject({
       {/* Input */}
       <div
         onClick={() => setOpen((v) => !v)}
-
         className="min-h-[36px] w-full flex flex-wrap gap-1 items-center px-2 py-1 rounded-lg bg-background border border-border-light cursor-pointer"
       >
         {value.length === 0 && (
@@ -1213,7 +1264,9 @@ function MultiSelectDropdownObject({
 
           <div className="max-h-40 overflow-y-auto">
             {normalizedSearch.length > 0 && finalOptions.length === 0 && (
-              <div className="px-3 py-2 text-xs text-text-secondary">No results</div>
+              <div className="px-3 py-2 text-xs text-text-secondary">
+                No results
+              </div>
             )}
 
             {normalizedSearch.length === 0 && options.length === 0 && (
@@ -1221,7 +1274,6 @@ function MultiSelectDropdownObject({
                 No companies loaded
               </div>
             )}
-
 
             {/* ✅ Select all only when search is not empty and results > 0 */}
             {showSelectAll && (

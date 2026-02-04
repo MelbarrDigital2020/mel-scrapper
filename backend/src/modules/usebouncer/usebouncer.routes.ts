@@ -19,4 +19,7 @@ router.get("/verify/batch/:jobId/status", authMiddleware, UseBouncerController.g
 // Download Batch Result
 router.get("/verify/batch/:jobId/download",authMiddleware,UseBouncerController.downloadBatchResults);
 
+// GetSingle verify History
+router.get("/single/history", authMiddleware, UseBouncerController.getSingleHistory);
+
 export default router;

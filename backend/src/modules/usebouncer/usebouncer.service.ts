@@ -931,4 +931,81 @@ export async function downloadBatchResults(input: DownloadBatchInput) {
 }
 
 // ============================= Download Bulk Emails End =============================
+type GetSingleHistoryInput = {
+  userId: string;
+  page: number;
+  pageSize: number;
+  search?: string;
+};
 
+export async function getSingleHistory(input: GetSingleHistoryInput) {
+  const page = Math.max(1, input.page || 1);
+  const pageSize = Math.min(50, Math.max(1, input.pageSize || 5));
+  const offset = (page - 1) * pageSize;
+
+  const q = (input.search || "").trim().toLowerCase();
+
+  // ✅ filter by email/status if search exists
+  const whereSearch = q
+    ? `AND (LOWER(r.email) LIKE $2 OR LOWER(r.status) LIKE $2 OR LOWER(r.reason) LIKE $2)`
+    : "";
+
+  const params: any[] = [input.userId];
+  if (q) params.push(`%${q}%`);
+  params.push(pageSize);
+  params.push(offset);
+
+  // total count
+  const countRes = await pool.query<{ total: string }>(
+    `
+    SELECT COUNT(*)::text AS total
+    FROM email_verification_jobs j
+    JOIN email_verification_results r ON r.job_id = j.id
+    WHERE j.user_id = $1
+      AND j.job_type = 'single'
+    ${whereSearch}
+    `,
+    q ? [input.userId, `%${q}%`] : [input.userId],
+  );
+
+  const total = Number(countRes.rows[0]?.total || 0);
+
+  // paged rows
+  const rowsRes = await pool.query<{
+    id: string;
+    email: string;
+    status: string;
+    reason: string | null;
+    checked_at: string;
+  }>(
+    `
+    SELECT
+      j.id,
+      r.email,
+      r.status,
+      r.reason,
+      r.checked_at
+    FROM email_verification_jobs j
+    JOIN email_verification_results r ON r.job_id = j.id
+    WHERE j.user_id = $1
+      AND j.job_type = 'single'
+    ${whereSearch}
+    ORDER BY r.checked_at DESC
+    LIMIT $${q ? 3 : 2} OFFSET $${q ? 4 : 3}
+    `,
+    params,
+  );
+
+  return {
+    page,
+    pageSize,
+    total,
+    items: rowsRes.rows.map((x) => ({
+      id: x.id,
+      email: x.email,
+      status: x.status,
+      reason: x.reason || "",
+      checkedAt: x.checked_at,
+    })),
+  };
+}

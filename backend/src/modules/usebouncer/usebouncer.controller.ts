@@ -140,3 +140,27 @@ export async function downloadBatchResults(req: AuthenticatedRequest, res: Respo
   }
 }
 
+export async function getSingleHistory(req: AuthenticatedRequest, res: Response) {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const page = Number(req.query.page || 1);
+    const pageSize = Number(req.query.pageSize || 5);
+    const search = typeof req.query.search === "string" ? req.query.search : "";
+
+    const data = await EmailVerificationService.getSingleHistory({
+      userId,
+      page,
+      pageSize,
+      search,
+    });
+
+    return res.json({ success: true, ...data });
+  } catch (err: any) {
+    return res.status(err?.status || 500).json({
+      success: false,
+      message: err?.message || "Single history failed",
+    });
+  }
+}

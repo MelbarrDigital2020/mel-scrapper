@@ -91,7 +91,7 @@ function useIsDarkMode() {
   const [isDark, setIsDark] = useState(() =>
     typeof document !== "undefined"
       ? document.documentElement.classList.contains("dark")
-      : false
+      : false,
   );
 
   useEffect(() => {
@@ -142,7 +142,9 @@ export default function DashboardHome() {
   const pieColors = ["#34d399", "#fbbf24", "#fb7185"];
 
   const topCountries = useMemo(() => {
-    return [...data.countries].sort((a, b) => b.contacts - a.contacts).slice(0, 12);
+    return [...data.countries]
+      .sort((a, b) => b.contacts - a.contacts)
+      .slice(0, 12);
   }, [data.countries]);
 
   const mapDots = useMemo(() => {
@@ -164,7 +166,10 @@ export default function DashboardHome() {
   }, [topCountries]);
 
   const topRegion = useMemo(() => {
-    return data.regions.slice().sort((a, b) => b.contacts - a.contacts)[0]?.region || "-";
+    return (
+      data.regions.slice().sort((a, b) => b.contacts - a.contacts)[0]?.region ||
+      "-"
+    );
   }, [data.regions]);
 
   const deliverabilityRate = useMemo(() => {
@@ -190,7 +195,7 @@ export default function DashboardHome() {
 
         <div className="flex items-center gap-2">
           <NavLink
-            to="/export-history"
+            to="/app/export-history"
             className="
               inline-flex items-center gap-2
               px-3 py-2 rounded-xl
@@ -209,7 +214,7 @@ export default function DashboardHome() {
           </NavLink>
 
           <NavLink
-            to="/debounce"
+            to="/app/debounce"
             className="
               inline-flex items-center gap-2
               px-3 py-2 rounded-xl
@@ -286,25 +291,51 @@ export default function DashboardHome() {
                     <RadarChart data={data.regions}>
                       <defs>
                         {/* theme-aware fills */}
-                        <radialGradient id="rgContacts" cx="50%" cy="50%" r="60%">
+                        <radialGradient
+                          id="rgContacts"
+                          cx="50%"
+                          cy="50%"
+                          r="60%"
+                        >
                           <stop
                             offset="0%"
-                            stopColor={isDark ? "rgba(255,255,255,0.26)" : "rgba(15,23,42,0.16)"}
+                            stopColor={
+                              isDark
+                                ? "rgba(255,255,255,0.26)"
+                                : "rgba(15,23,42,0.16)"
+                            }
                           />
                           <stop
                             offset="100%"
-                            stopColor={isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.03)"}
+                            stopColor={
+                              isDark
+                                ? "rgba(255,255,255,0.06)"
+                                : "rgba(15,23,42,0.03)"
+                            }
                           />
                         </radialGradient>
 
-                        <radialGradient id="rgCompanies" cx="50%" cy="50%" r="60%">
+                        <radialGradient
+                          id="rgCompanies"
+                          cx="50%"
+                          cy="50%"
+                          r="60%"
+                        >
                           <stop
                             offset="0%"
-                            stopColor={isDark ? "rgba(255,255,255,0.18)" : "rgba(15,23,42,0.10)"}
+                            stopColor={
+                              isDark
+                                ? "rgba(255,255,255,0.18)"
+                                : "rgba(15,23,42,0.10)"
+                            }
                           />
                           <stop
                             offset="100%"
-                            stopColor={isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.02)"}
+                            stopColor={
+                              isDark
+                                ? "rgba(255,255,255,0.03)"
+                                : "rgba(15,23,42,0.02)"
+                            }
                           />
                         </radialGradient>
                       </defs>
@@ -353,11 +384,15 @@ export default function DashboardHome() {
                 </div>
                 <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 p-4">
                   <p className="text-xs text-text-secondary">Total Companies</p>
-                  <p className="mt-1 text-2xl font-semibold">{fmt(data.kpis.companies)}</p>
+                  <p className="mt-1 text-2xl font-semibold">
+                    {fmt(data.kpis.companies)}
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 p-4">
                   <p className="text-xs text-text-secondary">Total Contacts</p>
-                  <p className="mt-1 text-2xl font-semibold">{fmt(data.kpis.contacts)}</p>
+                  <p className="mt-1 text-2xl font-semibold">
+                    {fmt(data.kpis.contacts)}
+                  </p>
                 </div>
               </div>
             </div>
@@ -407,8 +442,12 @@ export default function DashboardHome() {
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
                     <p className="text-xs text-text-secondary">Deliverable</p>
-                    <p className="text-2xl font-semibold">{deliverabilityRate}%</p>
-                    <p className="text-[11px] text-text-secondary">{fmt(debounceTotal)} checked</p>
+                    <p className="text-2xl font-semibold">
+                      {deliverabilityRate}%
+                    </p>
+                    <p className="text-[11px] text-text-secondary">
+                      {fmt(debounceTotal)} checked
+                    </p>
                   </div>
                 </div>
               </div>
@@ -418,24 +457,34 @@ export default function DashboardHome() {
                   <span className="inline-flex items-center gap-2">
                     <FiCheckCircle className="text-emerald-500" /> Deliverable
                   </span>
-                  <span className="font-semibold">{fmt(data.kpis.debounceDeliverable)}</span>
+                  <span className="font-semibold">
+                    {fmt(data.kpis.debounceDeliverable)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="inline-flex items-center gap-2">
                     <FiAlertTriangle className="text-amber-500" /> Risky
                   </span>
-                  <span className="font-semibold">{fmt(data.kpis.debounceRisky)}</span>
+                  <span className="font-semibold">
+                    {fmt(data.kpis.debounceRisky)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="inline-flex items-center gap-2">
                     <FiXCircle className="text-rose-500" /> Undeliverable
                   </span>
-                  <span className="font-semibold">{fmt(data.kpis.debounceUndeliverable)}</span>
+                  <span className="font-semibold">
+                    {fmt(data.kpis.debounceUndeliverable)}
+                  </span>
                 </div>
 
                 <div className="mt-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 p-3">
-                  <p className="text-xs text-text-secondary">Deliverability Rate</p>
-                  <p className="mt-1 text-lg font-semibold">{deliverabilityRate}%</p>
+                  <p className="text-xs text-text-secondary">
+                    Deliverability Rate
+                  </p>
+                  <p className="mt-1 text-lg font-semibold">
+                    {deliverabilityRate}%
+                  </p>
                 </div>
               </div>
             </div>
@@ -455,31 +504,53 @@ export default function DashboardHome() {
           >
             <div className="h-72 rounded-2xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 p-3">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data.trend} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+                <AreaChart
+                  data={data.trend}
+                  margin={{ top: 10, right: 10, bottom: 0, left: 0 }}
+                >
                   <defs>
                     <linearGradient id="gDebounced" x1="0" y1="0" x2="0" y2="1">
                       <stop
                         offset="0%"
-                        stopColor={isDark ? "rgba(255,255,255,0.24)" : "rgba(15,23,42,0.14)"}
+                        stopColor={
+                          isDark
+                            ? "rgba(255,255,255,0.24)"
+                            : "rgba(15,23,42,0.14)"
+                        }
                       />
                       <stop
                         offset="100%"
-                        stopColor={isDark ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.02)"}
+                        stopColor={
+                          isDark
+                            ? "rgba(255,255,255,0.02)"
+                            : "rgba(15,23,42,0.02)"
+                        }
                       />
                     </linearGradient>
                     <linearGradient id="gExports" x1="0" y1="0" x2="0" y2="1">
                       <stop
                         offset="0%"
-                        stopColor={isDark ? "rgba(255,255,255,0.16)" : "rgba(15,23,42,0.10)"}
+                        stopColor={
+                          isDark
+                            ? "rgba(255,255,255,0.16)"
+                            : "rgba(15,23,42,0.10)"
+                        }
                       />
                       <stop
                         offset="100%"
-                        stopColor={isDark ? "rgba(255,255,255,0.01)" : "rgba(15,23,42,0.01)"}
+                        stopColor={
+                          isDark
+                            ? "rgba(255,255,255,0.01)"
+                            : "rgba(15,23,42,0.01)"
+                        }
                       />
                     </linearGradient>
                   </defs>
 
-                  <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke={chartTheme.grid}
+                  />
                   <XAxis
                     dataKey="date"
                     tick={{ fontSize: 12, fill: chartTheme.tick }}
@@ -525,11 +596,15 @@ export default function DashboardHome() {
             <div className="mt-4 grid grid-cols-2 gap-2">
               <div className="rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 p-3">
                 <p className="text-xs text-text-secondary">Exports Total</p>
-                <p className="mt-1 text-lg font-semibold">{fmt(data.kpis.exportsTotal)}</p>
+                <p className="mt-1 text-lg font-semibold">
+                  {fmt(data.kpis.exportsTotal)}
+                </p>
               </div>
               <div className="rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 p-3">
                 <p className="text-xs text-text-secondary">Exports This Week</p>
-                <p className="mt-1 text-lg font-semibold">{fmt(data.kpis.exportsThisWeek)}</p>
+                <p className="mt-1 text-lg font-semibold">
+                  {fmt(data.kpis.exportsThisWeek)}
+                </p>
               </div>
             </div>
           </Chart>
@@ -537,55 +612,57 @@ export default function DashboardHome() {
 
         {/* Map Chart - Country Coverage */}
         {/* Top Countries */}
-      <Chart
-        title="Top Countries"
-        subtitle="Highest contact coverage"
-        onRefresh={refresh}
-        loading={loading}
-      >
-        <div className="space-y-3">
-          {topCountries.slice(0, 8).map((c, idx) => {
-            const max = topCountries[0]?.contacts || 1;
-            const percent = Math.round((c.contacts / max) * 100);
+        <Chart
+          title="Top Countries"
+          subtitle="Highest contact coverage"
+          onRefresh={refresh}
+          loading={loading}
+        >
+          <div className="space-y-3">
+            {topCountries.slice(0, 8).map((c, idx) => {
+              const max = topCountries[0]?.contacts || 1;
+              const percent = Math.round((c.contacts / max) * 100);
 
-            return (
-              <div
-                key={c.country}
-                className="
+              return (
+                <div
+                  key={c.country}
+                  className="
                   rounded-xl p-3
                   bg-black/5 dark:bg-white/5
                   border border-black/10 dark:border-white/10
                 "
-              >
-                <div className="flex items-center justify-between text-sm">
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">
-                      {idx + 1}. {c.country}
-                    </p>
-                    <p className="text-xs text-text-secondary">
-                      {fmt(c.companies)} companies
-                    </p>
+                >
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">
+                        {idx + 1}. {c.country}
+                      </p>
+                      <p className="text-xs text-text-secondary">
+                        {fmt(c.companies)} companies
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">{fmt(c.contacts)}</p>
+                      <p className="text-[11px] text-text-secondary">
+                        contacts
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold">{fmt(c.contacts)}</p>
-                    <p className="text-[11px] text-text-secondary">contacts</p>
+
+                  {/* Progress bar */}
+                  <div className="mt-2 h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-emerald-500"
+                      style={{ width: `${percent}%` }}
+                    />
                   </div>
                 </div>
+              );
+            })}
 
-                {/* Progress bar */}
-                <div className="mt-2 h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-emerald-500"
-                    style={{ width: `${percent}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-
-          <NavLink
-            to="/contacts"
-            className="
+            <NavLink
+              to="/app/contacts"
+              className="
               mt-2 inline-flex items-center justify-center gap-2 w-full
               text-sm px-3 py-2 rounded-xl
               bg-black/5 dark:bg-white/5
@@ -593,16 +670,21 @@ export default function DashboardHome() {
               hover:bg-black/8 dark:hover:bg-white/8
               transition
             "
-          >
-            Explore Contacts <FiArrowRight className="opacity-70" />
-          </NavLink>
-        </div>
-      </Chart>
+            >
+              Explore Contacts <FiArrowRight className="opacity-70" />
+            </NavLink>
+          </div>
+        </Chart>
       </div>
 
       {/* Bottom Panels */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <Chart title="Recent Exports" subtitle="Latest downloads & jobs" onRefresh={refresh} loading={loading}>
+        <Chart
+          title="Recent Exports"
+          subtitle="Latest downloads & jobs"
+          onRefresh={refresh}
+          loading={loading}
+        >
           <div className="space-y-2">
             {data.recentExports.map((ex) => (
               <div
@@ -620,7 +702,8 @@ export default function DashboardHome() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{ex.name}</p>
                   <p className="text-xs text-text-secondary">
-                    {ex.entity.toUpperCase()} • {ex.format.toUpperCase()} • {ex.createdAt}
+                    {ex.entity.toUpperCase()} • {ex.format.toUpperCase()} •{" "}
+                    {ex.createdAt}
                   </p>
                 </div>
 
@@ -658,7 +741,7 @@ export default function DashboardHome() {
             ))}
 
             <NavLink
-              to="/export-history"
+              to="/app/export-history"
               className="
                 mt-2 inline-flex items-center justify-center gap-2 w-full
                 text-sm px-3 py-2 rounded-xl
@@ -697,13 +780,17 @@ export default function DashboardHome() {
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">
-                    <span className="opacity-80">{j.type === "bulk" ? "Bulk" : "Single"} • </span>
+                    <span className="opacity-80">
+                      {j.type === "bulk" ? "Bulk" : "Single"} •{" "}
+                    </span>
                     {j.input}
                   </p>
                   <p className="text-xs text-text-secondary">{j.createdAt}</p>
                 </div>
 
-                <span className={`text-[11px] px-2 py-1 rounded-full border ${badgeForStatus(j.status)}`}>
+                <span
+                  className={`text-[11px] px-2 py-1 rounded-full border ${badgeForStatus(j.status)}`}
+                >
                   {j.status}
                 </span>
               </div>
@@ -720,10 +807,11 @@ export default function DashboardHome() {
             >
               <p className="text-sm font-semibold">Next best action</p>
               <p className="text-xs text-text-secondary mt-1">
-                Run a bulk debounce on your latest export list to improve deliverability.
+                Run a bulk debounce on your latest export list to improve
+                deliverability.
               </p>
               <NavLink
-                to="/debounce"
+                to="/app/debounce"
                 className="
                   mt-3 inline-flex items-center gap-2
                   text-sm px-3 py-2 rounded-xl
