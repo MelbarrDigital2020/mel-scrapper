@@ -11,6 +11,7 @@ import type {
 import { cn, intentMeta } from "./intentbase.utils";
 import { DonutCard, Pager } from "./intentbase.ui";
 
+
 async function fetchIntentByEmail(email: string): Promise<SingleIntentResult> {
   const res = await api.get("/intent-base/single", {
     params: { email },
@@ -150,7 +151,8 @@ export default function SingleIntentPanel() {
                 className={cn(
                   "mt-2 w-full rounded-2xl px-4 py-2 text-sm font-semibold shadow-sm transition",
                   "bg-gray-900 text-white hover:opacity-90 dark:bg-white dark:text-gray-900",
-                  (!email.trim() || loading) && "opacity-50 cursor-not-allowed",
+                  (!email.trim() || loading) &&
+                    "opacity-50 cursor-not-allowed",
                 )}
                 type="button"
               >
@@ -223,22 +225,19 @@ export default function SingleIntentPanel() {
                     </p>
                   </div>
 
-                  {/* Intent Signal -> intent_signal */}
-                  <div className="rounded-xl bg-white p-3 ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Intent Signal
-                    </p>
+                 {/* Intent Signal -> intent_signal */}
+                <div className="rounded-xl bg-white p-3 ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Intent Signal</p>
 
-                    <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-50">
-                      {result.found
-                        ? result.intentSignal?.trim() || "Not available"
-                        : "Not available"}
-                    </p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-50">
+                    {result.found ? (result.intentSignal?.trim() || "Not available") : "Not available"}
+                  </p>
 
-                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                      {result.found ? "Use this for segmentation" : "—"}
-                    </p>
-                  </div>
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                    {result.found ? "Use this for segmentation" : "—"}
+                  </p>
+                </div>
+
 
                   {/* Checked -> Intent single date-time */}
                   <div className="rounded-xl bg-white p-3 ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
@@ -336,7 +335,7 @@ export default function SingleIntentPanel() {
                           {h.found ? h.companyDomain : "—"}
                         </td>
                         <td className="px-4 py-3 text-gray-700 dark:text-gray-200">
-                          {h.found ? h.intentSignal?.trim() || "—" : "—"}
+                          {h.found ? (h.intentSignal?.trim() || "—") : "—"}
                         </td>
                         <td className="px-4 py-3">
                           <span
