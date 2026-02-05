@@ -59,6 +59,7 @@ type Contact = {
   industry: string | null;
   employees: string | null;
   revenue: string | null;
+  intentSignal: string | null;
 };
 
 type FiltersState = {
@@ -314,25 +315,13 @@ export default function ContactsTable({
     headerKeys: string[],
     listName: string,
   ) => {
-    const mappedHeaders = headerKeys
-      .map((k) => CONTACT_EXPORT_HEADER_MAP[k])
-      .filter(Boolean);
+    // ✅ modal keys already match backend keys, so use directly
+    const headers = headerKeys;
 
-    // ✅ basic validation (avoid backend 500)
-    if (!listName?.trim()) {
-      console.error("Export failed: listName missing");
-      return;
-    }
+    if (!listName?.trim()) return;
+    if (headers.length === 0) return;
 
-    if (mappedHeaders.length === 0) {
-      console.error("Export failed: No mapped headers");
-      return;
-    }
-
-    if (exportMode === "selected" && selectedRows.size === 0) {
-      console.error("Export failed: No selected rows");
-      return;
-    }
+    if (exportMode === "selected" && selectedRows.size === 0) return;
 
     const payload =
       exportMode === "selected"
@@ -340,16 +329,16 @@ export default function ContactsTable({
             entity: "contacts",
             mode: "selected",
             format,
-            headers: mappedHeaders,
+            headers, // ✅ direct
             ids: Array.from(selectedRows),
-            listName: listName.trim(), // ✅ REQUIRED
+            listName: listName.trim(),
           }
         : {
             entity: "contacts",
             mode: "filtered",
             format,
-            headers: mappedHeaders,
-            listName: listName.trim(), // ✅ REQUIRED
+            headers, // ✅ direct
+            listName: listName.trim(),
             query: {
               search: normalizedSearch || undefined,
               filters,
@@ -357,6 +346,7 @@ export default function ContactsTable({
               sortOrder,
             },
           };
+
     try {
       setReadyDownload(null);
       setExporting(true);
@@ -650,7 +640,7 @@ export default function ContactsTable({
             {loading ? (
               <tr>
                 <td
-                  colSpan={13}
+                  colSpan={14}
                   className="p-6 text-center text-text-secondary"
                 >
                   Loading contacts...
@@ -659,7 +649,7 @@ export default function ContactsTable({
             ) : rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={13}
+                  colSpan={14}
                   className="p-6 text-center text-text-secondary"
                 >
                   No matching contacts found
@@ -711,6 +701,15 @@ export default function ContactsTable({
                   <td className="p-3">{row.linkedin ?? "-"}</td>
                   <td className="p-3">{row.location ?? "-"}</td>
                   <td className="p-3">{row.industry ?? "-"}</td>
+                  <td className="p-3">
+                    {row.intentSignal ? (
+                      <span className="px-2 py-1 text-xs rounded-md bg-primary/10 text-primary">
+                        {row.intentSignal}
+                      </span>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                   <td className="p-3">{row.employees ?? "-"}</td>
                   <td className="p-3">{row.revenue ?? "-"}</td>
 
@@ -791,7 +790,6 @@ export default function ContactsTable({
         <ContactsModal
           mode="export"
           selectedCount={exportMode === "selected" ? selectedRows.size : total}
-          canUseCredits={false}
           onClose={() => setIsExportModalOpen(false)}
           onExport={(format, headerKeys, exportListName) =>
             handleExport(format, headerKeys, exportListName)

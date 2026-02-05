@@ -9,7 +9,7 @@ import contactsRoutes from "./modules/contacts/contacts.routes";
 import exportsRoutes from "./modules/export/export.routes";
 import exportHistoryRoutes from "./modules/export_history/export_history.routes";
 import useBouncerRoutes from "./modules/usebouncer/usebouncer.routes";
-
+import IntentBaseController from "./modules/intent_base/intentbase.routes";
 
 const app = express();
 
@@ -31,5 +31,6 @@ app.use("/api/contacts", contactsRoutes);
 app.use("/api/export", exportsRoutes);
 app.use("/api/export-history", exportHistoryRoutes);
 app.use("/api/usebouncer", useBouncerRoutes);
+app.use("/api/intent-base", IntentBaseController);
 
 export default app;

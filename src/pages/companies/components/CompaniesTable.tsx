@@ -300,24 +300,11 @@ export default function CompaniesTable({
     headerKeys: string[],
     listName: string,
   ) => {
-    const mappedHeaders = headerKeys
-      .map((k) => COMPANY_EXPORT_HEADER_MAP[k])
-      .filter(Boolean);
+    const headers = headerKeys;
 
-    if (!listName?.trim()) {
-      console.error("Export failed: listName missing");
-      return;
-    }
-
-    if (mappedHeaders.length === 0) {
-      console.error("Export failed: No mapped headers");
-      return;
-    }
-
-    if (exportMode === "selected" && selectedRows.size === 0) {
-      console.error("Export failed: No selected rows");
-      return;
-    }
+    if (!listName?.trim()) return;
+    if (headers.length === 0) return;
+    if (exportMode === "selected" && selectedRows.size === 0) return;
 
     const payload =
       exportMode === "selected"
@@ -325,7 +312,7 @@ export default function CompaniesTable({
             entity: "companies",
             mode: "selected",
             format,
-            headers: mappedHeaders,
+            headers,
             ids: Array.from(selectedRows),
             listName: listName.trim(),
           }
@@ -333,7 +320,7 @@ export default function CompaniesTable({
             entity: "companies",
             mode: "filtered",
             format,
-            headers: mappedHeaders,
+            headers,
             listName: listName.trim(),
             query: {
               search: search?.trim() || undefined,
@@ -358,7 +345,6 @@ export default function CompaniesTable({
 
       const createRes = await api.post("/export", payload);
       const jobId = createRes.data?.jobId;
-
       if (!jobId) throw new Error("JobId missing from export response");
 
       const job = await waitForExportJob(jobId);
@@ -774,7 +760,6 @@ export default function CompaniesTable({
         <CompaniesModal
           mode="export"
           selectedCount={exportMode === "selected" ? selectedRows.size : total}
-          canUseCredits={false}
           onClose={() => setIsExportModalOpen(false)}
           onExport={(format, headerKeys, exportListName) =>
             handleExport(format, headerKeys, exportListName)

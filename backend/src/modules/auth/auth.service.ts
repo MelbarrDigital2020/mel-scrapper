@@ -22,7 +22,6 @@ export const getGoogleAuthUrl = () => {
   });
 };
 
-
 export const startRegistration = async (data: RegisterStartDTO) => {
   const { firstName, lastName, email } = data;
 
@@ -149,53 +148,44 @@ export const loginUser = async (
 
   const result = await pool.query(
     `
-    SELECT id, email, password, email_is_verified, is_active, two_fa_enabled
+    SELECT id, email, password, email_is_verified, is_active, two_fa_enabled, auth_provider
     FROM users
     WHERE email = $1
     `,
     [email]
   );
 
-  if (result.rows.length === 0) {
-    throw new Error("Invalid email or password");
-  }
+  if (result.rows.length === 0) throw new Error("Invalid email or password");
 
   const user = result.rows[0];
 
-  if (!user.email_is_verified) {
-    throw new Error("Email not verified");
+  if (!user.email_is_verified) throw new Error("Email not verified");
+  if (!user.is_active) throw new Error("Account inactive");
+
+  // ✅ If this account is Google-only, block password login cleanly
+  if (user.auth_provider === "google") {
+    throw new Error("This account uses Google sign-in. Please continue with Google.");
   }
 
-  if (!user.is_active) {
-    throw new Error("Account inactive");
+  // ✅ Guard against null/empty hash (extra safety)
+  if (!user.password) {
+    throw new Error("Password login is not available for this account.");
   }
 
   const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    throw new Error("Invalid email or password");
-  }
+  if (!isMatch) throw new Error("Invalid email or password");
 
   /* 🔐 2FA FLOW */
   if (user.two_fa_enabled) {
     await createLoginOtp(user.id, user.email);
-
-    return {
-      twoFaRequired: true,
-      userId: user.id,
-    };
+    return { twoFaRequired: true, userId: user.id };
   }
 
-  /* ✅ NO 2FA */
-  const accessToken = generateAccessToken({
-    userId: user.id,
-    email: user.email,
-  });
+  const accessToken = generateAccessToken({ userId: user.id, email: user.email });
 
-  return {
-    twoFaRequired: false,
-    accessToken,
-  };
+  return { twoFaRequired: false, accessToken };
 };
+
 
 export const verifyLoginOtp = async (
   userId: string,
@@ -290,7 +280,6 @@ export const resendLoginOtp = async (userId: string) => {
 
   return true;
 };
-
 
 export const loginWithGoogle = async (code: string, ipAddress?: string) => {
   // 1) Exchange code -> tokens

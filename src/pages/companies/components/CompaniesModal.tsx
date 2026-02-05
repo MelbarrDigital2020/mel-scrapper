@@ -3,7 +3,6 @@ import {
   FiX,
   FiChevronDown,
   FiChevronUp,
-  FiLock,
   FiCheckSquare,
   FiSquare,
 } from "react-icons/fi";
@@ -12,42 +11,33 @@ import { useToast } from "../../shared/toast/ToastContext";
 type ExportFormat = "csv" | "excel";
 
 type ExportHeader = {
-  key: string;
+  key: string; // ✅ backend key
   label: string;
-  credit?: boolean; // ✅ credit based/locked
 };
 
 type Props = {
   onClose: () => void;
   mode: "list" | "export";
   selectedCount?: number;
-
-  // ✅ export callback MUST include listName (required)
   onExport?: (
     format: ExportFormat,
     selectedHeaderKeys: string[],
-    exportListName: string
+    exportListName: string,
   ) => void;
-
-  // ✅ allow/disallow credit headers
-  canUseCredits?: boolean;
 };
 
-// ✅ IMPORTANT: Keep ONLY headers that exist in backend ENTITY_CONFIG.companies.columns
+// ✅ ONLY backend keys that exist in ENTITY_CONFIG.companies.columns
 const EXPORT_HEADERS: ExportHeader[] = [
-  // ✅ Free headers
-  { key: "companyName", label: "Company Name" },
+  { key: "name", label: "Company Name" },
   { key: "domain", label: "Domain" },
-  { key: "phone", label: "Phone" },
-  { key: "linkedin", label: "LinkedIn" },
-  { key: "location", label: "Location" },
+  { key: "company_phone", label: "Phone" },
+  { key: "linkedin_url", label: "LinkedIn" },
+  { key: "website", label: "Website" },
+  { key: "country", label: "Location" },
   { key: "industry", label: "Industry" },
-  { key: "employees", label: "Employees Range" },
-  { key: "revenue", label: "Revenue Range" },
-
-  // 🔒 Credit-based headers (SAFE ones only)
-  { key: "website", label: "Website", credit: true },
-  { key: "headquarters", label: "Headquarters", credit: true }, // maps to full_address
+  { key: "employee_range", label: "Employees Range" },
+  { key: "revenue_range", label: "Revenue Range" },
+  { key: "full_address", label: "Headquarters" },
 ];
 
 export default function CompaniesModal({
@@ -55,17 +45,15 @@ export default function CompaniesModal({
   mode,
   onExport,
   selectedCount = 0,
-  canUseCredits = false,
 }: Props) {
   const { showToast } = useToast();
 
   const [exportFormat, setExportFormat] = useState<ExportFormat>("csv");
 
   const [open, setOpen] = useState<"create" | "own" | "shared" | null>(
-    mode === "list" ? "create" : null
+    mode === "list" ? "create" : null,
   );
 
-  // ✅ Export List Name (Required in export mode)
   const [exportListName, setExportListName] = useState("");
   const [exportListNameTouched, setExportListNameTouched] = useState(false);
 
@@ -76,43 +64,23 @@ export default function CompaniesModal({
     setOpen((prev) => (prev === key ? null : key));
   };
 
-  const freeHeaders = useMemo(() => EXPORT_HEADERS.filter((h) => !h.credit), []);
-  const creditHeaders = useMemo(() => EXPORT_HEADERS.filter((h) => h.credit), []);
+  const headers = useMemo(() => EXPORT_HEADERS, []);
 
-  // ✅ Default selected only FREE headers
-  const defaultSelected = useMemo(
-    () => freeHeaders.map((h) => h.key),
-    [freeHeaders]
-  );
-
-  const [selectedHeaders, setSelectedHeaders] = useState<string[]>(defaultSelected);
+  // ✅ default selected = all headers (everything free)
+  const defaultSelected = useMemo(() => headers.map((h) => h.key), [headers]);
+  const [selectedHeaders, setSelectedHeaders] =
+    useState<string[]>(defaultSelected);
 
   const isSelected = (key: string) => selectedHeaders.includes(key);
 
   const toggleHeader = (h: ExportHeader) => {
-    if (h.credit && !canUseCredits) {
-      showToast({
-        type: "error",
-        title: "Credits required",
-        message: `“${h.label}” is a credit-based field.`,
-      });
-      return;
-    }
-
     setSelectedHeaders((prev) => {
       if (prev.includes(h.key)) return prev.filter((k) => k !== h.key);
       return [...prev, h.key];
     });
   };
 
-  const selectAllFree = () => {
-    setSelectedHeaders((prev) => {
-      const next = new Set(prev);
-      freeHeaders.forEach((h) => next.add(h.key));
-      return Array.from(next);
-    });
-  };
-
+  const selectAll = () => setSelectedHeaders(headers.map((h) => h.key));
   const clearAll = () => setSelectedHeaders([]);
 
   const exportDisabled = selectedHeaders.length === 0 || !exportListName.trim();
@@ -129,6 +97,7 @@ export default function CompaniesModal({
           <button
             onClick={onClose}
             className="h-8 w-8 rounded-lg hover:bg-background flex items-center justify-center"
+            type="button"
           >
             <FiX />
           </button>
@@ -141,7 +110,8 @@ export default function CompaniesModal({
               <div className="space-y-1">
                 <p className="text-text-secondary">You are about to export</p>
                 <p className="font-semibold">
-                  {selectedCount} selected compan{selectedCount === 1 ? "y" : "ies"}
+                  {selectedCount} selected compan
+                  {selectedCount === 1 ? "y" : "ies"}
                 </p>
               </div>
 
@@ -157,7 +127,9 @@ export default function CompaniesModal({
                   onBlur={() => setExportListNameTouched(true)}
                   placeholder="Please enter list name"
                   className={`w-full h-9 px-3 rounded-lg bg-background border ${
-                    exportListNameInvalid ? "border-red-500" : "border-border-light"
+                    exportListNameInvalid
+                      ? "border-red-500"
+                      : "border-border-light"
                   }`}
                 />
                 {exportListNameInvalid && (
@@ -198,11 +170,11 @@ export default function CompaniesModal({
 
                   <div className="flex gap-2">
                     <button
-                      onClick={selectAllFree}
+                      onClick={selectAll}
                       className="h-8 px-3 rounded-lg border border-border-light hover:bg-background-card transition text-xs"
                       type="button"
                     >
-                      Select free
+                      Select all
                     </button>
                     <button
                       onClick={clearAll}
@@ -214,63 +186,20 @@ export default function CompaniesModal({
                   </div>
                 </div>
 
-                <div className="max-h-64 overflow-auto p-2 space-y-2">
-                  {/* Free */}
-                  <div>
-                    <p className="px-2 py-1 text-xs font-semibold text-text-secondary">
-                      Free fields
-                    </p>
-                    <div className="space-y-1">
-                      {freeHeaders.map((h) => (
-                        <button
-                          key={h.key}
-                          type="button"
-                          onClick={() => toggleHeader(h)}
-                          className="w-full flex items-center justify-between px-2 py-2 rounded-lg hover:bg-background transition"
-                        >
-                          <div className="flex items-center gap-2">
-                            {isSelected(h.key) ? <FiCheckSquare /> : <FiSquare />}
-                            <span>{h.label}</span>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Credit */}
-                  <div className="pt-2 border-t border-border-light">
-                    <p className="px-2 py-1 text-xs font-semibold text-text-secondary">
-                      Credit-based fields
-                    </p>
-                    <div className="space-y-1">
-                      {creditHeaders.map((h) => {
-                        const locked = !canUseCredits;
-                        const selected = isSelected(h.key);
-
-                        return (
-                          <button
-                            key={h.key}
-                            type="button"
-                            onClick={() => toggleHeader(h)}
-                            className={`w-full flex items-center justify-between px-2 py-2 rounded-lg transition ${
-                              locked ? "opacity-60 cursor-not-allowed" : "hover:bg-background"
-                            }`}
-                            title={locked ? "Credits required" : "Select this field"}
-                          >
-                            <div className="flex items-center gap-2">
-                              {selected ? <FiCheckSquare /> : <FiSquare />}
-                              <span>{h.label}</span>
-                            </div>
-
-                            <div className="flex items-center gap-2 text-xs text-text-secondary">
-                              <FiLock />
-                              <span>Credits</span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                <div className="max-h-64 overflow-auto p-2 space-y-1">
+                  {headers.map((h) => (
+                    <button
+                      key={h.key}
+                      type="button"
+                      onClick={() => toggleHeader(h)}
+                      className="w-full flex items-center justify-between px-2 py-2 rounded-lg hover:bg-background transition"
+                    >
+                      <div className="flex items-center gap-2">
+                        {isSelected(h.key) ? <FiCheckSquare /> : <FiSquare />}
+                        <span>{h.label}</span>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -323,6 +252,7 @@ export default function CompaniesModal({
           <button
             onClick={onClose}
             className="h-9 px-4 rounded-lg border border-border-light"
+            type="button"
           >
             Cancel
           </button>
@@ -347,7 +277,11 @@ export default function CompaniesModal({
                   message: "Companies export in progress",
                 });
 
-                onExport?.(exportFormat, selectedHeaders, exportListName.trim());
+                onExport?.(
+                  exportFormat,
+                  selectedHeaders,
+                  exportListName.trim(),
+                );
                 onClose();
               }}
               className={`h-9 px-4 rounded-lg text-white transition ${
@@ -355,6 +289,7 @@ export default function CompaniesModal({
                   ? "bg-primary/40 cursor-not-allowed"
                   : "bg-primary hover:brightness-110"
               }`}
+              type="button"
             >
               Export
             </button>
@@ -369,6 +304,7 @@ export default function CompaniesModal({
                 onClose();
               }}
               className="h-9 px-4 rounded-lg bg-primary text-white"
+              type="button"
             >
               Add
             </button>
@@ -379,13 +315,23 @@ export default function CompaniesModal({
   );
 }
 
-/* Accordion reused */
-function Accordion({ title, isOpen, onClick, children }: any) {
+function Accordion({
+  title,
+  isOpen,
+  onClick,
+  children,
+}: {
+  title: string;
+  isOpen: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <div className="border border-border-light rounded-lg">
       <button
         onClick={onClick}
         className="w-full flex justify-between px-3 py-2 font-medium"
+        type="button"
       >
         {title}
         {isOpen ? <FiChevronUp /> : <FiChevronDown />}

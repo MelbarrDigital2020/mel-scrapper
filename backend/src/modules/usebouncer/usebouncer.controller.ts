@@ -149,7 +149,7 @@ export async function getSingleHistory(req: AuthenticatedRequest, res: Response)
     const pageSize = Number(req.query.pageSize || 5);
     const search = typeof req.query.search === "string" ? req.query.search : "";
 
-    const data = await EmailVerificationService.getSingleHistory({
+    const data = await UseBouncerService.getSingleHistory({
       userId,
       page,
       pageSize,

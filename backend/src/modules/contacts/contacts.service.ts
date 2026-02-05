@@ -109,7 +109,7 @@ export class ContactsService {
     // - use ct.keyword OR ct.lead_stage OR ct.job_function etc.
     if (intent.length) {
       values.push(intent);
-      where.push(`ct.keyword = ANY($${i}::text[])`);
+      where.push(`ct.intent_signal = ANY($${i}::text[])`);
       i++;
     }
 
@@ -162,7 +162,9 @@ export class ContactsService {
         ct.keyword,
         ct.job_area,
         ct.job_function,
-
+        ct.job_function,
+        ct.intent_signal,
+        
         cp.name AS company_name,
         cp.domain AS company_domain,
         cp.website AS company_website,

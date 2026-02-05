@@ -3,7 +3,6 @@ import {
   FiX,
   FiChevronDown,
   FiChevronUp,
-  FiLock,
   FiCheckSquare,
   FiSquare,
   FiPlus,
@@ -15,7 +14,6 @@ type ExportFormat = "csv" | "excel";
 type ExportHeader = {
   key: string;
   label: string;
-  credit?: boolean;
 };
 
 type Props = {
@@ -27,28 +25,26 @@ type Props = {
   onExport?: (
     format: ExportFormat,
     selectedHeaderKeys: string[],
-    exportListName: string
+    exportListName: string,
   ) => void;
-
-  canUseCredits?: boolean;
 };
 
 const EXPORT_HEADERS: ExportHeader[] = [
-  // ✅ Free fields (these keys must match backend allowed header keys)
+  // ✅ All fields are FREE now (keys must match backend allowed header keys)
   { key: "name", label: "Name" },
-  { key: "job_title", label: "Job Title" }, // ✅ FIX: match backend "job_title"
-  { key: "company_name", label: "Company" }, // ✅ FIX: match backend "company_name"
-  { key: "company_domain", label: "Company Domain" }, // ✅ FIX: match backend "company_domain"
-  { key: "email_domain", label: "Domain" }, // ✅ FIX: match backend "email_domain"
-  { key: "country", label: "Location" }, // ✅ FIX: match backend "country"
-  { key: "company_industry", label: "Industry" }, // ✅ FIX: match backend "company_industry"
-  { key: "company_employee_range", label: "Employees Range" }, // ✅ FIX: match backend "company_employee_range"
-  { key: "company_revenue_range", label: "Revenue Range" }, // ✅ FIX: match backend "company_revenue_range"
+  { key: "job_title", label: "Job Title" },
+  { key: "company_name", label: "Company" },
+  { key: "company_domain", label: "Company Domain" },
+  { key: "email_domain", label: "Domain" },
+  { key: "country", label: "Location" },
+  { key: "company_industry", label: "Industry" },
+  { key: "company_employee_range", label: "Employees Range" },
+  { key: "company_revenue_range", label: "Revenue Range" },
 
-  // 🔒 Credit fields
-  { key: "email", label: "Email", credit: true },
-  { key: "company_phone", label: "Phone", credit: true }, // ✅ FIX: backend has company_phone (or use "company_phone" for contacts view)
-  { key: "linkedin_url", label: "LinkedIn", credit: true }, // ✅ FIX: match backend "linkedin_url"
+  // previously credit-based → now free
+  { key: "email", label: "Email" },
+  { key: "company_phone", label: "Phone" },
+  { key: "linkedin_url", label: "LinkedIn" },
 ];
 
 export default function ContactsModal({
@@ -56,14 +52,13 @@ export default function ContactsModal({
   mode,
   onExport,
   selectedCount = 0,
-  canUseCredits = false,
 }: Props) {
   const { showToast } = useToast();
 
   const [exportFormat, setExportFormat] = useState<ExportFormat>("csv");
 
   const [open, setOpen] = useState<"create" | "own" | "shared" | null>(
-    mode === "list" ? "create" : null
+    mode === "list" ? "create" : null,
   );
 
   // ✅ Export list name (required in export modal)
@@ -77,42 +72,23 @@ export default function ContactsModal({
     setOpen((prev) => (prev === key ? null : key));
   };
 
-  const freeHeaders = useMemo(() => EXPORT_HEADERS.filter((h) => !h.credit), []);
-  const creditHeaders = useMemo(() => EXPORT_HEADERS.filter((h) => h.credit), []);
+  const headers = useMemo(() => EXPORT_HEADERS, []);
 
-  // ✅ default selected = free only
-  const defaultSelected = useMemo(
-    () => freeHeaders.map((h) => h.key),
-    [freeHeaders]
-  );
-  const [selectedHeaders, setSelectedHeaders] = useState<string[]>(defaultSelected);
+  // ✅ default selected = all headers (since everything is free)
+  const defaultSelected = useMemo(() => headers.map((h) => h.key), [headers]);
+  const [selectedHeaders, setSelectedHeaders] =
+    useState<string[]>(defaultSelected);
 
   const isSelected = (key: string) => selectedHeaders.includes(key);
 
   const toggleHeader = (h: ExportHeader) => {
-    if (h.credit && !canUseCredits) {
-      showToast({
-        type: "error",
-        title: "Credits required",
-        message: `“${h.label}” is a credit-based field.`,
-      });
-      return;
-    }
-
     setSelectedHeaders((prev) => {
       if (prev.includes(h.key)) return prev.filter((k) => k !== h.key);
       return [...prev, h.key];
     });
   };
 
-  const selectAllFree = () => {
-    setSelectedHeaders((prev) => {
-      const next = new Set(prev);
-      freeHeaders.forEach((h) => next.add(h.key));
-      return Array.from(next);
-    });
-  };
-
+  const selectAll = () => setSelectedHeaders(headers.map((h) => h.key));
   const clearAll = () => setSelectedHeaders([]);
 
   const exportDisabled = selectedHeaders.length === 0 || !exportListName.trim();
@@ -142,11 +118,12 @@ export default function ContactsModal({
               <div className="space-y-1">
                 <p className="text-text-secondary">You are about to export</p>
                 <p className="font-semibold text-sm">
-                  {selectedCount} selected contact{selectedCount === 1 ? "" : "s"}
+                  {selectedCount} selected contact
+                  {selectedCount === 1 ? "" : "s"}
                 </p>
               </div>
 
-              {/* ✅ REQUIRED LIST NAME INPUT (ABOVE CSV/EXCEL) */}
+              {/* ✅ REQUIRED LIST NAME INPUT */}
               <div className="space-y-1">
                 <label className="text-xs font-medium text-text-secondary">
                   List name <span className="text-red-500">*</span>
@@ -158,7 +135,9 @@ export default function ContactsModal({
                   onBlur={() => setExportListNameTouched(true)}
                   placeholder="Please enter list name"
                   className={`w-full h-9 px-3 rounded-lg bg-background border ${
-                    exportListNameInvalid ? "border-red-500" : "border-border-light"
+                    exportListNameInvalid
+                      ? "border-red-500"
+                      : "border-border-light"
                   }`}
                 />
                 {exportListNameInvalid && (
@@ -200,10 +179,10 @@ export default function ContactsModal({
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={selectAllFree}
+                      onClick={selectAll}
                       className="h-8 px-3 rounded-lg border border-border-light hover:bg-background-card transition text-xs"
                     >
-                      Select free
+                      Select all
                     </button>
                     <button
                       type="button"
@@ -215,62 +194,20 @@ export default function ContactsModal({
                   </div>
                 </div>
 
-                <div className="max-h-64 overflow-auto p-2 space-y-2">
-                  {/* Free */}
-                  <div>
-                    <p className="px-2 py-1 text-xs font-semibold text-text-secondary">
-                      Free fields
-                    </p>
-                    <div className="space-y-1">
-                      {freeHeaders.map((h) => (
-                        <button
-                          key={h.key}
-                          type="button"
-                          onClick={() => toggleHeader(h)}
-                          className="w-full flex items-center justify-between px-2 py-2 rounded-lg hover:bg-background transition"
-                        >
-                          <div className="flex items-center gap-2">
-                            {isSelected(h.key) ? <FiCheckSquare /> : <FiSquare />}
-                            <span>{h.label}</span>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Credit */}
-                  <div className="pt-2 border-t border-border-light">
-                    <p className="px-2 py-1 text-xs font-semibold text-text-secondary">
-                      Credit-based fields
-                    </p>
-                    <div className="space-y-1">
-                      {creditHeaders.map((h) => {
-                        const locked = !canUseCredits;
-                        return (
-                          <button
-                            key={h.key}
-                            type="button"
-                            onClick={() => toggleHeader(h)}
-                            className={`w-full flex items-center justify-between px-2 py-2 rounded-lg transition ${
-                              locked
-                                ? "opacity-60 cursor-not-allowed"
-                                : "hover:bg-background"
-                            }`}
-                            title={locked ? "Credits required" : "Select this field"}
-                          >
-                            <div className="flex items-center gap-2">
-                              {isSelected(h.key) ? <FiCheckSquare /> : <FiSquare />}
-                              <span>{h.label}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-text-secondary">
-                              <FiLock />
-                              <span>Credits</span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                <div className="max-h-64 overflow-auto p-2 space-y-1">
+                  {headers.map((h) => (
+                    <button
+                      key={h.key}
+                      type="button"
+                      onClick={() => toggleHeader(h)}
+                      className="w-full flex items-center justify-between px-2 py-2 rounded-lg hover:bg-background transition"
+                    >
+                      <div className="flex items-center gap-2">
+                        {isSelected(h.key) ? <FiCheckSquare /> : <FiSquare />}
+                        <span>{h.label}</span>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
 

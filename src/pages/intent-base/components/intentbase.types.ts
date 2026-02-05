@@ -23,8 +23,8 @@ export type SingleIntentHistoryRow = {
 
   companyName?: string;
   companyDomain?: string;
-  industry?: string;
-
+  intentSignal?: string | null;   // ✅ ADD THIS
+  
   intentLevel?: IntentLevel;
   intentScore?: number;
   checkedAt: string;

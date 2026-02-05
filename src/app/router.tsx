@@ -11,6 +11,7 @@ import Companies from "../pages/companies/CompaniesPage";
 import Exporthistory from "../pages/export-history/ExportHistoryPage";
 import Debounce from "../pages/debounce/DebouncePage";
 import IntentBasePage from "../pages/intent-base/IntentBasePage";
+import ListHistoryPage from "../pages/list-history/ListHistoryPage";
 
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
@@ -49,6 +50,7 @@ export default function AppRouter() {
         <Route path="export-history" element={<Exporthistory />} />
         <Route path="debounce" element={<Debounce />} />
         <Route path="intentbase" element={<IntentBasePage />} />
+        <Route path="list-history" element={<ListHistoryPage />} />
 
         {/* ✅ Settings routes */}
         <Route path="settings" element={<SettingsPage />}>

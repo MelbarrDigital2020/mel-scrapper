@@ -7,6 +7,7 @@ import {
   FiDownload,
   FiTarget,
   FiTrendingUp,
+  FiLayers,
 } from "react-icons/fi";
 
 import logoFull from "../assets/logo.png";
@@ -83,6 +84,12 @@ export default function AppSidebar({ collapsed }: { collapsed: boolean }) {
           to="intentbase"
           icon={<FiTrendingUp />}
           label="Intent Base"
+          collapsed={collapsed}
+        />
+        <SidebarItem
+          to="list-history"
+          icon={<FiLayers />}
+          label="List History"
           collapsed={collapsed}
         />
         <SidebarItem

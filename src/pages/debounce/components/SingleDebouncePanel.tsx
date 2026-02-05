@@ -1,26 +1,48 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FiInfo, FiMail, FiSearch, FiTrash2 } from "react-icons/fi";
 
-import type {
-  DebounceStatus,
-  SingleResult,
-  SingleDebounceHistory,
-} from "./debounce.types";
-
+import type { DebounceStatus, SingleResult } from "./debounce.types";
 import { cn, statusMeta } from "./debounce.utils";
 import { DonutCard, Pager } from "./debounce.ui";
+
+import {
+  fetchSingleDebounceHistory,
+  verifySingleEmail,
+  type SingleHistoryItem,
+} from "../api/usebouncer";
 
 export default function SingleDebouncePanel() {
   const [singleEmail, setSingleEmail] = useState("");
   const [singleLoading, setSingleLoading] = useState(false);
   const [singleResult, setSingleResult] = useState<SingleResult | null>(null);
 
-  // ✅ history like bulk
-  const [history, setHistory] = useState<SingleDebounceHistory[]>([]);
-  const [search, setSearch] = useState("");
+  // ✅ API history state
+  const [items, setItems] = useState<SingleHistoryItem[]>([]);
   const [page, setPage] = useState(1);
+  const pageSize = 5; // ✅ single source of truth
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const pageSize = 5;
+  useEffect(() => {
+    loadHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, search]);
+
+  async function loadHistory() {
+    try {
+      setLoading(true);
+      const data = await fetchSingleDebounceHistory({
+        page,
+        pageSize,
+        search,
+      });
+      setItems(data.items || []);
+      setTotal(data.total || 0);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const singleCounts = useMemo(() => {
     if (!singleResult) return { deliverable: 0, risky: 0, undeliverable: 0 };
@@ -31,74 +53,37 @@ export default function SingleDebouncePanel() {
     };
   }, [singleResult]);
 
-  const filteredHistory = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return history;
-    return history.filter(
-      (h) =>
-        h.email.toLowerCase().includes(q) || h.status.toLowerCase().includes(q),
-    );
-  }, [history, search]);
-
-  const pagedHistory = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filteredHistory.slice(start, start + pageSize);
-  }, [filteredHistory, page, pageSize]);
-
   const runSingleDebounce = async () => {
     const email = singleEmail.trim();
     if (!email) return;
 
     setSingleLoading(true);
+    try {
+      const resp = await verifySingleEmail({ email, timeout: 10 });
 
-    // 🔁 Replace with API call
-    await new Promise((r) => setTimeout(r, 650));
+      const checkedAt = resp?.result?.checkedAt || new Date().toISOString();
 
-    const statuses: DebounceStatus[] = [
-      "deliverable",
-      "undeliverable",
-      "risky",
-    ];
-    const s = statuses[Math.floor(Math.random() * statuses.length)];
+      const result: SingleResult = {
+        email: resp.result.email || email,
+        status: resp.result.status as DebounceStatus,
+        reason: resp.result.reason || "",
+        checkedAt,
+      };
 
-    const reason =
-      s === "deliverable"
-        ? "Mailbox accepts mail and domain appears healthy."
-        : s === "risky"
-          ? "Catch-all or inconsistent signals; proceed carefully."
-          : "Mailbox rejected or domain invalid/unreachable.";
+      setSingleResult(result);
 
-    const checkedAt = new Date().toISOString();
-
-    const result: SingleResult = {
-      email,
-      status: s,
-      reason,
-      checkedAt,
-    };
-
-    setSingleResult(result);
-
-    // ✅ push to history (latest on top)
-    const historyRow: SingleDebounceHistory = {
-      id:
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      email,
-      status: s,
-      reason,
-      checkedAt,
-    };
-
-    setHistory((prev) => [historyRow, ...prev]);
-    setPage(1);
-
-    setSingleLoading(false);
+      // ✅ refresh history from backend and jump to first page
+      setPage(1);
+      await loadHistory();
+    } finally {
+      setSingleLoading(false);
+    }
   };
 
-  const removeHistoryRow = (id: string) => {
-    setHistory((prev) => prev.filter((x) => x.id !== id));
+  // ✅ Optional: UI-only remove (does NOT delete backend record)
+  const removeHistoryRowUIOnly = (id: string) => {
+    setItems((prev) => prev.filter((x) => x.id !== id));
+    setTotal((t) => Math.max(0, t - 1));
   };
 
   return (
@@ -262,8 +247,8 @@ export default function SingleDebouncePanel() {
         />
       </div>
 
+      {/* History */}
       <div className="lg:col-span-12">
-        {/* ✅ Single History (like bulk) */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -281,7 +266,7 @@ export default function SingleDebouncePanel() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                placeholder="Search email or status..."
+                placeholder="Search email / status / reason..."
                 className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:text-gray-50 sm:w-80"
               />
             </div>
@@ -300,47 +285,56 @@ export default function SingleDebouncePanel() {
                 </thead>
 
                 <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-800 dark:bg-gray-900">
-                  {pagedHistory.map((h) => {
-                    const meta = statusMeta(h.status);
-                    const Icon = meta.icon;
-
-                    return (
-                      <tr
-                        key={h.id}
-                        className="hover:bg-gray-50/70 dark:hover:bg-gray-950/30"
+                  {loading ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-4 py-10 text-center text-sm text-gray-600 dark:text-gray-300"
                       >
-                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-50">
-                          {h.email}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold ring-1",
-                              meta.chip,
-                            )}
-                          >
-                            <Icon />
-                            {meta.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
-                          {new Date(h.checkedAt).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => removeHistoryRow(h.id)}
-                            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-gray-900"
-                            type="button"
-                            title="Remove"
-                          >
-                            <FiTrash2 /> Remove
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                        Loading...
+                      </td>
+                    </tr>
+                  ) : items.length ? (
+                    items.map((h) => {
+                      const meta = statusMeta(h.status);
+                      const Icon = meta.icon;
 
-                  {!pagedHistory.length && (
+                      return (
+                        <tr
+                          key={h.id}
+                          className="hover:bg-gray-50/70 dark:hover:bg-gray-950/30"
+                        >
+                          <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-50">
+                            {h.email}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold ring-1",
+                                meta.chip,
+                              )}
+                            >
+                              <Icon />
+                              {meta.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
+                            {new Date(h.checkedAt).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => removeHistoryRowUIOnly(h.id)}
+                              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-gray-900"
+                              type="button"
+                              title="Remove (UI only)"
+                            >
+                              <FiTrash2 /> Remove
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
                     <tr>
                       <td
                         colSpan={4}
@@ -358,7 +352,7 @@ export default function SingleDebouncePanel() {
               <Pager
                 page={page}
                 pageSize={pageSize}
-                total={filteredHistory.length}
+                total={total}
                 onPageChange={setPage}
               />
             </div>

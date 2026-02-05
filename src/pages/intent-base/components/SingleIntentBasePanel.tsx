@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { FiInfo, FiMail, FiSearch, FiTrash2, FiTarget } from "react-icons/fi";
+import api from "../../../services/api";
 
 import type {
   IntentLevel,
@@ -10,64 +11,13 @@ import type {
 import { cn, intentMeta } from "./intentbase.utils";
 import { DonutCard, Pager } from "./intentbase.ui";
 
-/**
- * 🔁 Replace this with your real API call.
- * Example:
- *   const res = await api.get("/intent/single", { params: { email } })
- *   return res.data
- */
-async function fetchIntentByEmail(
-  email: string,
-): Promise<SingleIntentResult> {
-  await new Promise((r) => setTimeout(r, 650));
+async function fetchIntentByEmail(email: string): Promise<SingleIntentResult> {
+  const res = await api.get("/intent-base/single", {
+    params: { email },
+  });
 
-  // Mock behavior: 70% found in DB
-  const found = Math.random() > 0.3;
-
-  if (!found) {
-    return {
-      email,
-      found: false,
-      intentLevel: "unknown",
-      intentScore: 0,
-      reason: "No matching record found in your database for this email.",
-      checkedAt: new Date().toISOString(),
-    };
-  }
-
-  const levels: IntentLevel[] = ["high", "medium", "low"];
-  const intentLevel = levels[Math.floor(Math.random() * levels.length)];
-  const intentScore =
-    intentLevel === "high"
-      ? 80 + Math.floor(Math.random() * 20)
-      : intentLevel === "medium"
-        ? 45 + Math.floor(Math.random() * 30)
-        : 10 + Math.floor(Math.random() * 30);
-
-  const companyName = ["Mel-Barr", "NovaEdge", "Skyline Labs", "GrowthCraft"][
-    Math.floor(Math.random() * 4)
-  ];
-  const companyDomain = companyName.toLowerCase().replace(/\s+/g, "") + ".com";
-  const industry = ["SaaS", "FinTech", "E-commerce", "AI / Data"][
-    Math.floor(Math.random() * 4)
-  ];
-
-  return {
-    email,
-    found: true,
-    companyName,
-    companyDomain,
-    industry,
-    intentLevel,
-    intentScore,
-    reason:
-      intentLevel === "high"
-        ? "Strong buying signals detected across recent activity."
-        : intentLevel === "medium"
-          ? "Moderate signals detected — good candidate for segmented outreach."
-          : "Weak signals detected — consider nurturing or deprioritizing.",
-    checkedAt: new Date().toISOString(),
-  };
+  // backend returns { success: true, data: SingleIntentResult }
+  return res.data.data;
 }
 
 export default function SingleIntentPanel() {
@@ -101,7 +51,7 @@ export default function SingleIntentPanel() {
         h.email,
         h.companyName ?? "",
         h.companyDomain ?? "",
-        h.industry ?? "",
+        h.intentSignal ?? "",
         h.intentLevel ?? "",
       ]
         .join(" ")
@@ -133,7 +83,7 @@ export default function SingleIntentPanel() {
       found: res.found,
       companyName: res.companyName,
       companyDomain: res.companyDomain,
-      industry: res.industry,
+      intentSignal: res.intentSignal ?? null, // ✅
       intentLevel: res.intentLevel,
       intentScore: res.intentScore,
       checkedAt: res.checkedAt,
@@ -200,8 +150,7 @@ export default function SingleIntentPanel() {
                 className={cn(
                   "mt-2 w-full rounded-2xl px-4 py-2 text-sm font-semibold shadow-sm transition",
                   "bg-gray-900 text-white hover:opacity-90 dark:bg-white dark:text-gray-900",
-                  (!email.trim() || loading) &&
-                    "opacity-50 cursor-not-allowed",
+                  (!email.trim() || loading) && "opacity-50 cursor-not-allowed",
                 )}
                 type="button"
               >
@@ -274,18 +223,20 @@ export default function SingleIntentPanel() {
                     </p>
                   </div>
 
-                  {/* Recommended action -> Industry */}
+                  {/* Intent Signal -> intent_signal */}
                   <div className="rounded-xl bg-white p-3 ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Industry
+                      Intent Signal
                     </p>
+
                     <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-50">
-                      {result.found ? result.industry : "Not available"}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
                       {result.found
-                        ? "Use this for segmentation"
-                        : "—"}
+                        ? result.intentSignal?.trim() || "Not available"
+                        : "Not available"}
+                    </p>
+
+                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                      {result.found ? "Use this for segmentation" : "—"}
                     </p>
                   </div>
 
@@ -358,7 +309,7 @@ export default function SingleIntentPanel() {
                     <th className="px-4 py-3">Email</th>
                     <th className="px-4 py-3">Company</th>
                     <th className="px-4 py-3">Domain</th>
-                    <th className="px-4 py-3">Industry</th>
+                    <th className="px-4 py-3">Intent Signal</th>
                     <th className="px-4 py-3">Intent</th>
                     <th className="px-4 py-3">Intent single date-time</th>
                     <th className="px-4 py-3 text-right">Action</th>
@@ -385,7 +336,7 @@ export default function SingleIntentPanel() {
                           {h.found ? h.companyDomain : "—"}
                         </td>
                         <td className="px-4 py-3 text-gray-700 dark:text-gray-200">
-                          {h.found ? h.industry : "—"}
+                          {h.found ? h.intentSignal?.trim() || "—" : "—"}
                         </td>
                         <td className="px-4 py-3">
                           <span
