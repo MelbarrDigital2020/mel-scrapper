@@ -16,7 +16,6 @@ import logo from "../../assets/logo.png";
 
 import { FiMail, FiUser, FiArrowLeft } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
-import { FaMicrosoft } from "react-icons/fa";
 
 type RegisterForm = {
   firstName: string;
@@ -182,10 +181,6 @@ export default function RegisterPage() {
                 <SocialLoginButton
                   label="Sign up with Google"
                   icon={<FcGoogle size={18} />}
-                />
-                <SocialLoginButton
-                  label="Sign up with Microsoft"
-                  icon={<FaMicrosoft size={18} />}
                 />
               </div>
 

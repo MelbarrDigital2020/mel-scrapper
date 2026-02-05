@@ -9,15 +9,13 @@ export default function AuthLayoutSplit({
   right: ReactNode;
 }) {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center px-4 py-10 bg-gradient-to-br from-white via-[#EEF4FF] to-[#E6EEFF]">
+    <div className="min-h-screen w-full flex items-center justify-center px-4 bg-gradient-to-br from-white via-[#EEF4FF] to-[#E6EEFF]">
       {/* Big container like screenshot */}
       <div className="w-full max-w-6xl rounded-[28px] overflow-hidden shadow-2xl bg-white/55 backdrop-blur-md border border-white/60">
         <div className="grid grid-cols-1 lg:grid-cols-2">
           {/* Left – Auth */}
-          <div className="flex items-center justify-center px-6 py-10 lg:px-10 bg-white/65">
-            <div className="w-full max-w-md rounded-2xl bg-white/90 shadow-xl border border-white/70 p-7 lg:p-8">
-              {left}
-            </div>
+          <div className="flex items-center justify-center px-6 lg:px-10 bg-white/65">
+            <div className="w-full max-w-md rounded-2xl p-7 lg:p-8">{left}</div>
           </div>
 
           {/* Right – Marketing */}

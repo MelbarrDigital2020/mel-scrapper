@@ -15,7 +15,6 @@ import logo from "../../assets/logo.png";
 
 import { FiMail } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
-import { FaMicrosoft } from "react-icons/fa";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api/";
 console.log("VITE_API_URL =", import.meta.env.VITE_API_URL);
@@ -125,16 +124,12 @@ export default function LoginPage() {
             >
               {/* Social login always visible */}
               <div className="space-y-3">
-                <SocialLoginButton 
-                onClick={() => {
+                <SocialLoginButton
+                  onClick={() => {
                     window.location.href = `${API}auth/google`;
                   }}
                   label="Log in with Google"
                   icon={<FcGoogle size={18} />}
-                />
-                <SocialLoginButton
-                  label="Log in with Microsoft"
-                  icon={<FaMicrosoft size={18} />}
                 />
               </div>
               {/* Divider */}

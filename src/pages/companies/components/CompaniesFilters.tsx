@@ -12,7 +12,6 @@ import {
   FiUsers,
   FiDollarSign,
   FiLayers,
-  FiTarget,
   FiLock,
   FiMapPin,
   FiCheck,
@@ -20,13 +19,7 @@ import {
 import CompanyData from "../data/CompanyList.json";
 
 /* ---------------- Types ---------------- */
-type SectionKey =
-  | "company"
-  | "employees"
-  | "revenue"
-  | "industry"
-  | "location"
-  | "intent";
+type SectionKey = "company" | "employees" | "revenue" | "industry" | "location";
 
 type FiltersState = Record<SectionKey, string[]>;
 
@@ -61,7 +54,6 @@ const FILTER_LABELS: Record<SectionKey, string> = {
   revenue: "Revenue",
   industry: "Industry",
   location: "Location",
-  intent: "Intent-Based",
 };
 
 const regionCountries: Record<string, string[]> = {
@@ -319,30 +311,6 @@ const regionCountries: Record<string, string[]> = {
   "Not Specified": ["unknown"],
 };
 
-const INTENT_FILTER = {
-  key: "intent" as const,
-  label: "Intent-Based",
-  icon: <FiTarget size={14} />,
-  options: [
-    "Marketing",
-    "Finance & Accounting",
-    "Human Resources",
-    "Cybersecurity",
-    "Sales",
-    "Customer Support",
-    "Software Engineering",
-    "IT Leadership",
-    "Data / Analytics / AI",
-    "Executive Leadership",
-    "DevOps / Cloud / Infrastructure",
-    "Operations",
-    "Other / Unclear",
-    "Talent Acquisition & Recruiting",
-    "Product Management",
-    "Customer Success",
-  ],
-};
-
 /* ---------------- Main ---------------- */
 export default function CompaniesFilter({ onApply }: Props) {
   const [openSection, setOpenSection] = useState<SectionKey | null>("company");
@@ -357,7 +325,6 @@ export default function CompaniesFilter({ onApply }: Props) {
     revenue: [],
     industry: [],
     location: [],
-    intent: [],
   });
 
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
@@ -456,7 +423,6 @@ export default function CompaniesFilter({ onApply }: Props) {
       revenue: [],
       industry: [],
       location: [],
-      intent: [],
     });
 
   useEffect(() => {
@@ -693,27 +659,6 @@ export default function CompaniesFilter({ onApply }: Props) {
           <LocationRegionDropdown
             value={filters.location}
             onChange={(v) => updateFilter("location", v)}
-          />
-        </FilterAccordion>
-
-        {/* Intent */}
-        <FilterAccordion
-          title={
-            <span className="flex items-center gap-2">
-              {INTENT_FILTER.icon}
-              {INTENT_FILTER.label}
-            </span>
-          }
-          count={filters.intent.length}
-          isOpen={openSection === "intent"}
-          onClick={() => toggle("intent")}
-          onClear={() => clearFilter("intent")}
-        >
-          <MultiSelectDropdown
-            placeholder="Search intent signals"
-            options={INTENT_FILTER.options}
-            value={filters.intent}
-            onChange={(v) => updateFilter("intent", v)}
           />
         </FilterAccordion>
 

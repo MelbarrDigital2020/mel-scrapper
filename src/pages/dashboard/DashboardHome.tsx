@@ -111,7 +111,7 @@ function useIsDarkMode() {
 
 /* ---------------- Component ---------------- */
 export default function DashboardHome() {
-  const { data, loading, error, debounceTotal, refresh } = useDashboard();
+const { data, loading, error, debounceTotal, refresh, getExportDownloadLink } = useDashboard();
   const isDark = useIsDarkMode();
 
   /** Theme-aware chart styling */
@@ -119,7 +119,7 @@ export default function DashboardHome() {
     return {
       tick: isDark ? "rgba(255,255,255,0.72)" : "rgba(15,23,42,0.72)", // slate-900-ish
       axis: isDark ? "rgba(255,255,255,0.14)" : "rgba(15,23,42,0.14)",
-      grid: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.12)",
+      grid: isDark ? "rgba(87, 51, 51, 0.12)" : "rgba(15,23,42,0.12)",
       strokeStrong: isDark ? "rgba(255,255,255,0.55)" : "rgba(15,23,42,0.55)",
       strokeSoft: isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.35)",
       tooltipBg: isDark ? "rgba(10,10,10,0.92)" : "rgba(255,255,255,0.96)",
@@ -702,8 +702,8 @@ export default function DashboardHome() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{ex.name}</p>
                   <p className="text-xs text-text-secondary">
-                    {ex.entity.toUpperCase()} • {ex.format.toUpperCase()} •{" "}
-                    {ex.createdAt}
+                    {ex.entity.toUpperCase()} • {ex.format.toUpperCase()} • {ex.createdAt}
+
                   </p>
                 </div>
 
@@ -728,10 +728,23 @@ export default function DashboardHome() {
                     "
                     disabled={ex.status !== "completed"}
                     title={ex.status === "completed" ? "Download" : "Not ready"}
-                    onClick={() => {
-                      // TODO: wire to your export download endpoint
-                      // api.get(`/exports/${ex.id}/download`, { responseType: "blob" })
+                   onClick={async () => {
+                      try {
+                        // 1) if backend already sent a valid token url
+                        if (ex.downloadUrl) {
+                          window.open(ex.downloadUrl, "_blank", "noopener,noreferrer");
+                          return;
+                        }
+
+                        // 2) otherwise mint/refresh token for this job id
+                        const url = await getExportDownloadLink(ex.id);
+                        if (url) window.open(url, "_blank", "noopener,noreferrer");
+                      } catch (err) {
+                        console.error(err);
+                        alert("Download not ready yet.");
+                      }
                     }}
+
                   >
                     <FiDownload />
                     <span className="hidden sm:inline">Download</span>

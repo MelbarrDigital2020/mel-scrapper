@@ -92,53 +92,90 @@ export const completeRegistration = async (
     throw new Error("User ID and password are required");
   }
 
-  const result = await pool.query(
-    `
-    SELECT email, first_name, email_is_verified, password
-    FROM users
-    WHERE id = $1
-    `,
-    [userId]
-  );
+  // ✅ Start transaction (IMPORTANT)
+  const client = await pool.connect();
 
-  if (result.rows.length === 0) {
-    throw new Error("User not found");
-  }
+  try {
+    await client.query("BEGIN");
 
-  const user = result.rows[0];
+    const result = await client.query(
+      `
+      SELECT email, first_name, email_is_verified, password
+      FROM users
+      WHERE id = $1
+      `,
+      [userId]
+    );
 
-  if (!user.email_is_verified) {
-    throw new Error("Email not verified");
-  }
-
-  if (user.password) {
-    throw new Error("Account already completed");
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  await pool.query(
-    `
-    UPDATE users
-    SET password = $1,
-        is_active = true,
-        updated_at = NOW()
-    WHERE id = $2
-    `,
-    [hashedPassword, userId]
-  );
-
-  // ✅ SEND WELCOME EMAIL
-  await sendEmail({
-    to: user.email,
-    template: "WELCOME",
-    data: {
-      firstName: user.first_name
+    if (result.rows.length === 0) {
+      throw new Error("User not found");
     }
-  });
 
-  return true;
+    const user = result.rows[0];
+
+    if (!user.email_is_verified) {
+      throw new Error("Email not verified");
+    }
+
+    if (user.password) {
+      throw new Error("Account already completed");
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // ✅ Update user
+    await client.query(
+      `
+      UPDATE users
+      SET password = $1,
+          is_active = true,
+          updated_at = NOW()
+      WHERE id = $2
+      `,
+      [hashedPassword, userId]
+    );
+
+    // ✅ Insert Initial Credits
+    await client.query(
+      `
+      INSERT INTO credit_ledger (
+        user_id,
+        provider,
+        event_type,
+        amount,
+        note
+      )
+      VALUES ($1, $2, $3, $4, $5)
+      `,
+      [
+        userId,
+        "bouncer",
+        "adjustment",
+        100,
+        "initial credits"
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    // ✅ SEND WELCOME EMAIL
+    await sendEmail({
+      to: user.email,
+      template: "WELCOME",
+      data: {
+        firstName: user.first_name
+      }
+    });
+
+    return true;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 };
+
 
 export const loginUser = async (
   data: LoginDTO,
@@ -321,7 +358,7 @@ export const loginWithGoogle = async (code: string, ipAddress?: string) => {
 
     if (!u.is_active) throw new Error("Account inactive");
 
-    // Link google_id if not linked yet + mark verified if google says verified
+    // Existing user: link google_id if needed, update profile + last login
     const updated = await pool.query(
       `
       UPDATE users
@@ -346,30 +383,55 @@ export const loginWithGoogle = async (code: string, ipAddress?: string) => {
 
     userId = updated.rows[0].id;
     userRole = updated.rows[0].role;
-  } else {
-    // 4) Create new user
-    const created = await pool.query(
-      `
-      INSERT INTO users
-        (first_name, last_name, email, password, role, is_active, email_is_verified,
-         google_id, auth_provider, avatar_url, last_login, last_login_ip, created_at, updated_at)
-      VALUES
-        ($1, $2, $3, NULL, 'user', true, $4,
-         $5, 'google', $6, NOW(), $7, NOW(), NOW())
-      RETURNING id, role
-      `,
-      [firstName, lastName, email, emailVerified, googleId, avatarUrl, ipAddress || null]
-    );
 
-    userId = created.rows[0].id;
-    userRole = created.rows[0].role;
+    // ✅ IMPORTANT: Do NOT add initial credits here (this is login)
+  } else {
+    // ✅ NEW GOOGLE REGISTRATION FLOW (add credits here)
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // 4) Create new user
+      const created = await client.query(
+        `
+        INSERT INTO users
+          (first_name, last_name, email, password, role, is_active, email_is_verified,
+           google_id, auth_provider, avatar_url, last_login, last_login_ip, created_at, updated_at)
+        VALUES
+          ($1, $2, $3, NULL, 'user', true, $4,
+           $5, 'google', $6, NOW(), $7, NOW(), NOW())
+        RETURNING id, role
+        `,
+        [firstName, lastName, email, emailVerified, googleId, avatarUrl, ipAddress || null]
+      );
+
+      userId = created.rows[0].id;
+      userRole = created.rows[0].role;
+
+      // ✅ Insert Initial Credits (ONLY for new registration)
+      await client.query(
+        `
+        INSERT INTO credit_ledger (user_id, provider, event_type, amount, note)
+        VALUES ($1, $2, $3, $4, $5)
+        `,
+        [userId, "bouncer", "adjustment", 100, "initial credits"]
+      );
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
-  // 5) Issue your normal JWT (same as password login)
+  // 5) Issue JWT
   const accessToken = generateAccessToken({
     userId,
-    email
+    email,
   } as any);
 
   return { accessToken };
 };
+

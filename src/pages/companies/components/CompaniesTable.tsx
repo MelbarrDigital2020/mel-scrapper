@@ -98,7 +98,6 @@ export default function CompaniesTable({
     revenue: string[];
     industry: string[];
     location: string[];
-    intent: string[];
   };
   onLoadingChange?: (loading: boolean) => void;
 }) {
