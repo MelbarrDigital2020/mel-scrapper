@@ -123,7 +123,7 @@ export default function RegisterPage() {
       });
 
       setSuccessMessage("OTP resent successfully. Please check your email.");
-      setTimeout(() => setSuccessMessage(""), 5000);
+      setTimeout(() => setSuccessMessage(""), 4010);
       setError(""); // clear error if any
     } catch (err: any) {
       setError(err?.response?.data?.message || "Failed to resend OTP");

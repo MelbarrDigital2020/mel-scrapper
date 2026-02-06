@@ -119,9 +119,9 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 }
 
 function getDownloadUrl(jobId: string) {
-  const base = (api.defaults.baseURL || "http://localhost:5000/api").replace(
+  const base = (api.defaults.baseURL || "http://localhost:4010/api").replace(
     /\/+$/,
-    ""
+    "",
   );
   return `${base}/export/jobs/${jobId}/download`;
 }
@@ -258,20 +258,18 @@ export default function ExportHistoryPage() {
   }, [safePage, totalPages]);
 
   // ✅ Download handler (if token not present)
-async function handleDownload(row: ExportRow) {
-  try {
-    // ✅ Otherwise use existing export download API (auth cookie required)
-    // Same pattern as ContactsTable getDownloadUrl()
-    window.open(getDownloadUrl(row.id), "_blank");
+  async function handleDownload(row: ExportRow) {
+    try {
+      // ✅ Otherwise use existing export download API (auth cookie required)
+      // Same pattern as ContactsTable getDownloadUrl()
+      window.open(getDownloadUrl(row.id), "_blank");
 
-    // If you want to use public download always:
-    // window.open(getPublicDownloadUrl(row.id), "_blank");
-  } catch (e) {
-    console.error("Download failed:", e);
+      // If you want to use public download always:
+      // window.open(getPublicDownloadUrl(row.id), "_blank");
+    } catch (e) {
+      console.error("Download failed:", e);
+    }
   }
-}
-
-
 
   return (
     <div className="space-y-6">
@@ -393,7 +391,8 @@ async function handleDownload(row: ExportRow) {
                 </tr>
               ) : (
                 rows.map((row) => {
-                  const canDownload = row.status === "completed" && (row.downloadUrl || row.id);
+                  const canDownload =
+                    row.status === "completed" && (row.downloadUrl || row.id);
 
                   return (
                     <tr
@@ -507,7 +506,6 @@ async function handleDownload(row: ExportRow) {
                   outline-none focus:ring-2 focus:ring-primary/30 transition
                 "
               >
-                
                 <option value={10}>10</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
@@ -570,7 +568,9 @@ async function handleDownload(row: ExportRow) {
             {/* Page count */}
             <div className="text-sm text-text-secondary">
               Page{" "}
-              <span className="font-semibold text-text-primary">{safePage}</span>{" "}
+              <span className="font-semibold text-text-primary">
+                {safePage}
+              </span>{" "}
               /{" "}
               <span className="font-semibold text-text-primary">
                 {totalPages}

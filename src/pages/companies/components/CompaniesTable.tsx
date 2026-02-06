@@ -271,12 +271,12 @@ export default function CompaniesTable({
 
   useEffect(() => {
     if (!readyDownload) return;
-    const t = setTimeout(() => setReadyDownload(null), 15000);
+    const t = setTimeout(() => setReadyDownload(null), 14010);
     return () => clearTimeout(t);
   }, [readyDownload]);
 
   function getDownloadUrl(jobId: string) {
-    const base = (api.defaults.baseURL || "http://localhost:5000").replace(
+    const base = (api.defaults.baseURL || "http://localhost:4010").replace(
       /\/+$/,
       "",
     );
