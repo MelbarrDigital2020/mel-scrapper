@@ -111,7 +111,14 @@ function useIsDarkMode() {
 
 /* ---------------- Component ---------------- */
 export default function DashboardHome() {
-const { data, loading, error, debounceTotal, refresh, getExportDownloadLink } = useDashboard();
+  const {
+    data,
+    loading,
+    error,
+    debounceTotal,
+    refresh,
+    getExportDownloadLink,
+  } = useDashboard();
   const isDark = useIsDarkMode();
 
   /** Theme-aware chart styling */
@@ -188,7 +195,7 @@ const { data, loading, error, debounceTotal, refresh, getExportDownloadLink } = 
           </p>
           {error ? (
             <p className="text-xs mt-2 text-rose-600 dark:text-rose-300/90">
-              Showing fallback data (API issue): {error}
+              {/* {error} */}
             </p>
           ) : null}
         </div>
@@ -702,8 +709,8 @@ const { data, loading, error, debounceTotal, refresh, getExportDownloadLink } = 
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{ex.name}</p>
                   <p className="text-xs text-text-secondary">
-                    {ex.entity.toUpperCase()} • {ex.format.toUpperCase()} • {ex.createdAt}
-
+                    {ex.entity.toUpperCase()} • {ex.format.toUpperCase()} •{" "}
+                    {ex.createdAt}
                   </p>
                 </div>
 
@@ -728,23 +735,27 @@ const { data, loading, error, debounceTotal, refresh, getExportDownloadLink } = 
                     "
                     disabled={ex.status !== "completed"}
                     title={ex.status === "completed" ? "Download" : "Not ready"}
-                   onClick={async () => {
+                    onClick={async () => {
                       try {
                         // 1) if backend already sent a valid token url
                         if (ex.downloadUrl) {
-                          window.open(ex.downloadUrl, "_blank", "noopener,noreferrer");
+                          window.open(
+                            ex.downloadUrl,
+                            "_blank",
+                            "noopener,noreferrer",
+                          );
                           return;
                         }
 
                         // 2) otherwise mint/refresh token for this job id
                         const url = await getExportDownloadLink(ex.id);
-                        if (url) window.open(url, "_blank", "noopener,noreferrer");
+                        if (url)
+                          window.open(url, "_blank", "noopener,noreferrer");
                       } catch (err) {
                         console.error(err);
                         alert("Download not ready yet.");
                       }
                     }}
-
                   >
                     <FiDownload />
                     <span className="hidden sm:inline">Download</span>
@@ -825,7 +836,7 @@ const { data, loading, error, debounceTotal, refresh, getExportDownloadLink } = 
               </p>
               <NavLink
                 to="/app/debounce"
-                className="
+                className="Showing
                   mt-3 inline-flex items-center gap-2
                   text-sm px-3 py-2 rounded-xl
                   bg-black/5 dark:bg-white/5

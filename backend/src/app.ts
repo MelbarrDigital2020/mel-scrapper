@@ -13,12 +13,24 @@ import IntentBaseController from "./modules/intent_base/intentbase.routes";
 
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://app.mel-demandscraper.com",
+  "https://mel-demandscraper.com",
+];
+
 app.use(
   cors({
-    origin: "http://localhost:5173", // frontend origin
-    credentials: true,               // 🔥 REQUIRED
+    origin: (origin, cb) => {
+      // allow server-to-server / curl / postman (no origin)
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error(`CORS blocked: ${origin}`));
+    },
+    credentials: true,
   })
 );
+
 
 app.use(cookieParser()); // 🔥 REQUIRED
 app.use(express.json());

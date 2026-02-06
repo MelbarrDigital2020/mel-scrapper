@@ -78,12 +78,13 @@ export const login = async (req: Request, res: Response) => {
       (req.headers["x-forwarded-for"] as string)?.split(",")[0] || req.ip;
 
     const data = await authService.loginUser(req.body, ip);
+    const isProd = process.env.NODE_ENV === "production";
 
     // ✅ Narrow the union properly
     if (data.twoFaRequired === false) {
       res.cookie("access_token", data.accessToken, {
         httpOnly: true,
-        secure: false,
+        secure: isProd,
         sameSite: "lax",
         path: "/", 
         maxAge: 7 * 24 * 60 * 60 * 1000,
