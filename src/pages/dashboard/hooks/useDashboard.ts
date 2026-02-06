@@ -3,7 +3,7 @@ import api from "../../../services/api";
 
 
 function getDownloadUrl(jobId: string) {
-  const base = (api.defaults.baseURL || "http://localhost:5000/api").replace(
+  const base = (api.defaults.baseURL || "http://localhost:4010/api").replace(
     /\/+$/,
     ""
   );
